@@ -14,7 +14,7 @@ class HaAiFactoryApplicationTest {
     @Test
     void applicationContextLoads() {
         new ApplicationContextRunner()
-                .withUserConfiguration(HaAiFactoryApplication.class)
+                .withUserConfiguration(FoundationConfiguration.class)
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(IdentitySessionService.class);
