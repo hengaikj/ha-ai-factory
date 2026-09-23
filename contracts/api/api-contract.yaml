@@ -587,26 +587,6 @@ paths:
                 type: array
                 items: { $ref: '#/components/schemas/ProjectResource' }
         default: { $ref: '#/components/responses/Problem' }
-  /projects/{projectId}/resources/{resourceId}/content:
-    parameters:
-      - $ref: '#/components/parameters/ProjectId'
-      - name: resourceId
-        in: path
-        required: true
-        schema: { type: integer, format: int64, minimum: 1 }
-    get:
-      tags: [Resources]
-      summary: Read or download a template or rule
-      description: M02 resources reference repository files only; system editing, hosting, conflict merging and public downloads are deferred under HD-004.
-      responses:
-        '200':
-          description: Resource content.
-          content:
-            application/octet-stream:
-              schema: { type: string, format: binary }
-            text/plain:
-              schema: { type: string }
-        default: { $ref: '#/components/responses/Problem' }
   /projects/{projectId}/activity:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
