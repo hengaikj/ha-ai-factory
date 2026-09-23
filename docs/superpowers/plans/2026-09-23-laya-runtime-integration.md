@@ -34,7 +34,7 @@
 
 ## Entry Gate
 
-开始 Task 1 前，先由独立 Reviewer 复审当前 RETURN 整改并在 `contracts/contract-gate-approval.md` 记录 Global Contract Gate PASS。当前 HEAD 对应的决定仍是 RETURN，因此入口条件目前未满足。Task 1 形成 Laya Runtime 专项 Contract 并取得独立 PASS；Task 1 PASS 前不得执行 Task 2 及后续实现任务。生产部署还要求 M01 身份/权限实现满足 HD-001/HD-003；当前仅有内存骨架，不满足该运行前提。若专项 Contract 审查认定需要重开 Requirement、Product 或 Design Gate，先按生命周期完成这些阶段再继续。
+开始 Task 1 前，先由独立 Reviewer 复审当前 Gate 复审并在 `contracts/contract-gate-approval.md` 记录 Global Contract Gate PASS。当前 HEAD 已由独立 Reviewer 复审为 PASS，入口条件已满足。Task 1 形成 Laya Runtime 专项 Contract 并取得独立 PASS；Task 1 PASS 前不得执行 Task 2 及后续实现任务。生产部署还要求 M01 身份/权限实现满足 HD-001/HD-003；当前仅有内存骨架，不满足该运行前提。若专项 Contract 审查认定需要重开 Requirement、Product 或 Design Gate，先按生命周期完成这些阶段再继续。
 
 ## Planned File Map
 
@@ -51,12 +51,12 @@
 - `ha-ai-agent-runtime/app/decision/service.py`：执行身份/配置/模板校验、调用和结果验证。
 - `ha-ai-agent-runtime/app/security/service_auth.py`：实现获批的 Runtime 到 Laya 服务认证客户端。
 - `ha-ai-agent-runtime/tests/`：覆盖 provider、权限前置、失败关闭、日志隐私和契约行为。
-- `ha-ai-factory-server/src/main/java/com/hengaikj/haifactory/runtime/AgentDecisionController.java`：暴露获批的外部用户/API入口。
-- `ha-ai-factory-server/src/main/java/com/hengaikj/haifactory/runtime/AgentDecisionService.java`：执行当前用户项目权限检查并编排 Runtime 调用。
-- `ha-ai-factory-server/src/main/java/com/hengaikj/haifactory/runtime/AgentDecisionAuthorizer.java`：用服务端认证上下文执行项目/任务级授权。
-- `ha-ai-factory-server/src/main/java/com/hengaikj/haifactory/runtime/RuntimeServiceIdentityIssuer.java`：按获批 HD-001 机制签发 Runtime 短时身份。
-- `ha-ai-factory-server/src/main/java/com/hengaikj/haifactory/runtime/AgentRuntimeClient.java`：经服务身份调用 Python Runtime。
-- `ha-ai-factory-server/src/test/java/com/hengaikj/haifactory/runtime/`：覆盖权限拒绝、身份 claims 和 Runtime 故障行为。
+- `ha-ai-factory-server/src/main/java/com/hengaikj/ai/factory/runtime/AgentDecisionController.java`：暴露获批的外部用户/API入口。
+- `ha-ai-factory-server/src/main/java/com/hengaikj/ai/factory/runtime/AgentDecisionService.java`：执行当前用户项目权限检查并编排 Runtime 调用。
+- `ha-ai-factory-server/src/main/java/com/hengaikj/ai/factory/runtime/AgentDecisionAuthorizer.java`：用服务端认证上下文执行项目/任务级授权。
+- `ha-ai-factory-server/src/main/java/com/hengaikj/ai/factory/runtime/RuntimeServiceIdentityIssuer.java`：按获批 HD-001 机制签发 Runtime 短时身份。
+- `ha-ai-factory-server/src/main/java/com/hengaikj/ai/factory/runtime/AgentRuntimeClient.java`：经服务身份调用 Python Runtime。
+- `ha-ai-factory-server/src/test/java/com/hengaikj/ai/factory/runtime/`：覆盖权限拒绝、身份 claims 和 Runtime 故障行为。
 - `deployment/laya/Dockerfile`、`deployment/laya/compose.yaml`、`deployment/laya/model-manifest.yaml`：构建与运行内部 Laya 服务及锁定模型制品。
 - `evidence/laya-offline-evaluation.md`：记录经批准评测集、版本、指标和结果。
 
@@ -74,10 +74,10 @@
 - Consumes: 已确认设计 `docs/superpowers/specs/2026-09-23-laya-runtime-integration-design.md`。
 - Produces: 独立 Reviewer PASS 的 Runtime 专项 Contract，至少明确模型用途、禁止用途、请求字段、问题模板、模型/权重版本、Runtime 到 Laya 的认证、网络策略、审计字段、错误语义、限流/超时/重试和离线评测门槛。
 
-- [ ] **Step 1: 复核入口 Gate 已通过**
+- [x] **Step 1: 复核入口 Gate 已通过**
 
 Run: `rg -n "Status:|Latest global review decision|Global Contract Gate: PASS" contracts/contract-gate-approval.md evidence`
-Expected: 当前 RETURN 修复已由独立 Reviewer 复审，并在 HEAD 可见的 Gate 记录及证据中确认 Global Contract Gate PASS；否则停止本计划。
+Expected: HEAD 中的 Gate 记录及证据确认 Global Contract Gate PASS。
 
 - [ ] **Step 2: 起草 Runtime 专项 Contract 决策**
 
@@ -149,13 +149,13 @@ Expected: PASS；Commit: `功能: 定义Runtime决策Provider契约`。
 
 **Files:**
 - Modify: `ha-ai-factory-server/pom.xml` (add Spring Web support required by the approved API)
-- Create: `ha-ai-factory-server/src/main/java/com/hengaikj/haifactory/runtime/AgentDecisionController.java`
-- Create: `ha-ai-factory-server/src/main/java/com/hengaikj/haifactory/runtime/AgentDecisionService.java`
-- Create: `ha-ai-factory-server/src/main/java/com/hengaikj/haifactory/runtime/AgentDecisionAuthorizer.java`
-- Create: `ha-ai-factory-server/src/main/java/com/hengaikj/haifactory/runtime/RuntimeServiceIdentityIssuer.java`
-- Create: `ha-ai-factory-server/src/main/java/com/hengaikj/haifactory/runtime/AgentRuntimeClient.java`
-- Create: `ha-ai-factory-server/src/test/java/com/hengaikj/haifactory/runtime/AgentDecisionServiceTest.java`
-- Create: `ha-ai-factory-server/src/test/java/com/hengaikj/haifactory/runtime/RuntimeServiceIdentityIssuerTest.java`
+- Create: `ha-ai-factory-server/src/main/java/com/hengaikj/ai/factory/runtime/AgentDecisionController.java`
+- Create: `ha-ai-factory-server/src/main/java/com/hengaikj/ai/factory/runtime/AgentDecisionService.java`
+- Create: `ha-ai-factory-server/src/main/java/com/hengaikj/ai/factory/runtime/AgentDecisionAuthorizer.java`
+- Create: `ha-ai-factory-server/src/main/java/com/hengaikj/ai/factory/runtime/RuntimeServiceIdentityIssuer.java`
+- Create: `ha-ai-factory-server/src/main/java/com/hengaikj/ai/factory/runtime/AgentRuntimeClient.java`
+- Create: `ha-ai-factory-server/src/test/java/com/hengaikj/ai/factory/runtime/AgentDecisionServiceTest.java`
+- Create: `ha-ai-factory-server/src/test/java/com/hengaikj/ai/factory/runtime/RuntimeServiceIdentityIssuerTest.java`
 
 **Interfaces:**
 - Consumes: Task 1 外部 API/服务身份 Contract；符合 HD-001/HD-003 的认证与 RBAC 实现。当前内存骨架仅用于单元测试替身，不作为生产身份授权源。
