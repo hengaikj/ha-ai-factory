@@ -1,4 +1,4 @@
-package com.hengaikj.haifactory.authorization;
+package com.hengaikj.ai.factory.authorization;
 
 import org.junit.jupiter.api.Test;
 

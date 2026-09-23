@@ -1,4 +1,4 @@
-package com.hengaikj.haifactory.audit;
+package com.hengaikj.ai.factory.audit;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;

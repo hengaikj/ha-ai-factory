@@ -1,4 +1,4 @@
-package com.hengaikj.haifactory.identity;
+package com.hengaikj.ai.factory.identity;
 
 import java.time.Instant;
 

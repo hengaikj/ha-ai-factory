@@ -1,10 +1,10 @@
-package com.hengaikj.haifactory;
+package com.hengaikj.ai.factory;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import com.hengaikj.haifactory.audit.AuditLogService;
-import com.hengaikj.haifactory.authorization.PermissionEvaluator;
-import com.hengaikj.haifactory.identity.IdentitySessionService;
+import com.hengaikj.ai.factory.audit.AuditLogService;
+import com.hengaikj.ai.factory.authorization.PermissionEvaluator;
+import com.hengaikj.ai.factory.identity.IdentitySessionService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

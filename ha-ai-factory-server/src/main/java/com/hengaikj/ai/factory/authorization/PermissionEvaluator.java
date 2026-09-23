@@ -1,4 +1,4 @@
-package com.hengaikj.haifactory.authorization;
+package com.hengaikj.ai.factory.authorization;
 
 /** 使用默认拒绝策略执行内存权限判断，不负责认证或最终项目授权策略。 */
 public class PermissionEvaluator {

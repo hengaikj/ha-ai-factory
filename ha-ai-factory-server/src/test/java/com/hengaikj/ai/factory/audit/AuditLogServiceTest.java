@@ -1,4 +1,4 @@
-package com.hengaikj.haifactory.audit;
+package com.hengaikj.ai.factory.audit;
 
 import org.junit.jupiter.api.Test;
 

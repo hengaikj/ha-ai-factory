@@ -1,12 +1,12 @@
-package com.hengaikj.haifactory;
+package com.hengaikj.ai.factory;
 
-import com.hengaikj.haifactory.audit.AuditLogService;
-import com.hengaikj.haifactory.audit.InMemoryAuditLog;
-import com.hengaikj.haifactory.authorization.InMemoryRoleAssignments;
-import com.hengaikj.haifactory.authorization.PermissionEvaluator;
-import com.hengaikj.haifactory.identity.IdentitySessionService;
-import com.hengaikj.haifactory.identity.InMemoryIdentityStore;
-import com.hengaikj.haifactory.identity.InMemorySessionStore;
+import com.hengaikj.ai.factory.audit.AuditLogService;
+import com.hengaikj.ai.factory.audit.InMemoryAuditLog;
+import com.hengaikj.ai.factory.authorization.InMemoryRoleAssignments;
+import com.hengaikj.ai.factory.authorization.PermissionEvaluator;
+import com.hengaikj.ai.factory.identity.IdentitySessionService;
+import com.hengaikj.ai.factory.identity.InMemoryIdentityStore;
+import com.hengaikj.ai.factory.identity.InMemorySessionStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

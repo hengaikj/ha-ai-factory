@@ -1,4 +1,4 @@
-package com.hengaikj.haifactory.authorization;
+package com.hengaikj.ai.factory.authorization;
 
 /** 表示内部权限演示用的单个权限编号。 */
 public record Permission(String permissionId) {
