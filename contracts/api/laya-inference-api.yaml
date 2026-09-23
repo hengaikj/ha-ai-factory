@@ -46,6 +46,14 @@ x-model-policy:
   disabled-checkpoints: [english, typed-decisions]
   required-loaded-checkpoints: [multilingual]
   caller-may-select-model: false
+x-input-budget:
+  checkpoint-context-tokens: 1024
+  maximum-option-tokens-per-question: 256
+  maximum-state-tokens-per-question: 768
+  maximum-sequence-tokens-per-question: 1024
+  enforcement: pinned-checkpoint-tokenizer-before-inference
+  overflow: reject-with-422-input-too-long
+  truncation: prohibited
 paths:
   /health:
     get:
@@ -86,26 +94,39 @@ paths:
       responses:
         '200':
           description: Typed model result. The result is untrusted and requires Runtime validation and human review.
+          headers:
+            X-Request-ID:
+              required: true
+              description: Gateway echoes the exact request ID after binding the response to this upstream exchange; Laya itself does not echo it.
+              schema: { type: string, format: uuid }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SystemOneResponse' }
         '400':
           description: Malformed request.
+          headers:
+            X-Request-ID: { required: true, schema: { type: string, format: uuid } }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProviderError' }
         '401':
-          description: Workload authentication failed.
+          description: Workload authentication failed; gateway returns the stable mapped error and request ID.
+          headers:
+            X-Request-ID: { required: true, schema: { type: string, format: uuid } }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProviderError' }
         '422':
-          description: Request schema or question is invalid.
+          description: Request schema/question invalid, or pinned-tokenizer budget exceeded; over-budget input is rejected before inference and is never silently truncated.
+          headers:
+            X-Request-ID: { required: true, schema: { type: string, format: uuid } }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProviderError' }
         '503':
           description: Model unavailable, not ready, or admission limit reached.
+          headers:
+            X-Request-ID: { required: true, schema: { type: string, format: uuid } }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProviderError' }
@@ -205,32 +226,50 @@ components:
     ChoiceAnswer:
       type: object
       additionalProperties: false
-      required: [choice]
+      required: [type, choice, action]
       properties:
+        type: { const: choice }
         choice: { type: string }
         confidence: { type: number, minimum: 0, maximum: 1 }
         probabilities:
           type: object
           additionalProperties: { type: number, minimum: 0, maximum: 1 }
+        action: { $ref: '#/components/schemas/ActionMetadata' }
     ScoreAnswer:
       type: object
       additionalProperties: false
-      required: [score]
+      required: [type, score, legend, action]
       properties:
+        type: { const: score }
         score: { type: number }
         confidence: { type: number, minimum: 0, maximum: 1 }
         probabilities:
           type: object
           additionalProperties: { type: number, minimum: 0, maximum: 1 }
+        legend:
+          type: object
+          description: Mapping from score index to the submitted criterion text.
+          additionalProperties: { type: string }
+        action: { $ref: '#/components/schemas/ActionMetadata' }
     NoulAnswer:
       type: object
       additionalProperties: false
-      required: [noul]
+      required: [type, noul, action]
       properties:
+        type: { const: noul }
         noul: { type: number, minimum: 0, maximum: 1 }
         confidence: { type: number, minimum: 0, maximum: 1 }
+        action: { $ref: '#/components/schemas/ActionMetadata' }
+    ActionMetadata:
+      type: object
+      additionalProperties: false
+      required: [act_probability]
+      properties:
+        act_probability: { type: number, minimum: 0, maximum: 1 }
     ProviderError:
       type: object
-      required: [detail]
+      required: [code, detail]
+      additionalProperties: false
       properties:
-        detail: { type: string, maxLength: 512, description: Stable error text; must not contain prompt, state, credential, or other project data. }
+        code: { type: string, enum: [INVALID_REQUEST, INPUT_TOO_LONG, AUTHENTICATION_FAILED, PROVIDER_UNAVAILABLE, PROVIDER_OVERLOADED, MODEL_NOT_READY, INTERNAL_PROVIDER_ERROR] }
+        detail: { type: string, maxLength: 512, description: Stable sanitized operator-facing guidance; never copied from upstream exception detail and must not contain prompt, state, credential, or other project data. }

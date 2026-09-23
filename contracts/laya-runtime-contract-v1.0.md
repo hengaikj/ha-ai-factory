@@ -47,9 +47,13 @@ Runtime 只发送服务端维护模板生成的请求。客户端不得覆盖下
 
 原始任务正文、凭据、系统提示、任意 Python 代码、工具参数和未脱敏敏感字段不得发送至 Laya。Runtime 到 Laya 的 wire schema、字段上限和选择规则详见 [`laya-inference-api.yaml`](api/laya-inference-api.yaml)。
 
+多语言 checkpoint 的输入预算按锁定模型 tokenizer 对每个问题分别执行：每个问题的上下文上限 1,024 tokens，其中该问题 options 上限 256 tokens、state 上限 768 tokens。调用前由同版本 Laya 服务包装层使用 checkpoint tokenizer 计算完整序列预算；超过预算返回 422 `INPUT_TOO_LONG`，不得静默截断或继续推理。若上游实现会截断输入，部署包装层必须在截断前检测并拒绝。
+
 ## 5. 响应契约
 
-Runtime 必须校验响应 schema、`X-Request-ID` 关联、模型 allowlist、模板版本、结果类型和允许值。未知标签、版本不匹配、缺失字段、无效 JSON 或低于批准阈值的结果均标记为 `FAILED_CLOSED` 并转人工处理。Laya 响应的 `routing.model` 必须为 `multilingual`；模型代码 revision、checkpoint 和权重摘要由 Runtime 从只读部署清单关联，不假设 Laya 响应提供这些摘要。
+Runtime 必须校验响应 schema、请求关联、模型 allowlist、模板版本、结果类型和允许值。由于上游 Laya 不回显 `X-Request-ID`，受控网关必须将 Runtime 请求 ID 与该次上游 HTTP 交换作一对一关联，并在网关响应头原样返回 `X-Request-ID`；Runtime 校验匹配后才接受响应。未知标签、版本不匹配、缺失字段、无效 JSON 或低于批准阈值的结果均标记为 `FAILED_CLOSED` 并转人工处理。Laya 响应的 `routing.model` 必须为 `multilingual`；模型代码 revision、checkpoint 和权重摘要由 Runtime 从只读部署清单关联，不假设 Laya 响应提供这些摘要。
+
+上游 answer 结构包含与请求问题类型一致的 `type`、类型字段、必需的 `action.act_probability`；choice/score 答案还包含 `confidence` 与 `probabilities`，score 答案额外包含 `legend`，noul 答案包含 `confidence`。Runtime 必须按专项 API schema 校验这些字段，不得放行未知字段；`action.act_probability` 仅为模型输出元数据，不授权执行动作。
 
 成功响应只能表示“模型推理完成”，不得表示权限批准、Gate 通过或业务动作已执行。响应至少包含：
 
@@ -65,7 +69,9 @@ Runtime 必须校验响应 schema、`X-Request-ID` 关联、模型 allowlist、�
 
 以下情况必须失败关闭，不得静默切换模型或执行后续副作用：配置缺失、配置未批准、身份无效、跨项目任务、权限不足、Laya 不可用、认证失败、超时、限流、响应校验失败、模型/模板版本不匹配和低可信结果。
 
-错误响应只返回稳定错误码和下一步操作提示，不返回密钥、完整提示词或其他项目数据。连接超时为 2 秒、单次尝试总超时为 5 秒；最多一次重试，仅限连接失败、超时或 HTTP 503，并复用相同请求体及 `X-Request-ID`，等待 200 毫秒后重试；总操作时限为 10.2 秒。4xx、认证失败、模型校验错误和响应错误不重试。推理没有业务副作用；并发/队列饱和时立即返回 `PROVIDER_OVERLOADED`，不得无限排队。
+Runtime 外部错误响应只返回稳定错误码和下一步操作提示，不返回密钥、完整提示词或其他项目数据。网关必须将上游错误映射为契约错误码；上游任意 `detail`（包括异常文本）不得透传，原始异常只允许写入经脱敏且访问受控的运维日志。响应必须使用 API schema 的 `code` 和静态安全提示 `detail` 字段；映射至少包括 `INVALID_REQUEST`、`INPUT_TOO_LONG`、`AUTHENTICATION_FAILED`、`PROVIDER_UNAVAILABLE`、`PROVIDER_OVERLOADED`、`MODEL_NOT_READY` 和 `INTERNAL_PROVIDER_ERROR`。上游异常、验证器消息和请求内容不得拼接进外部错误文案。
+
+连接超时为 2 秒、单次尝试总超时为 5 秒；最多一次重试，仅限连接失败、超时或 HTTP 503，并复用相同请求体及 `X-Request-ID`，等待 200 毫秒后重试；总操作时限为 10.2 秒。4xx、认证失败、模型校验错误和响应错误不重试。推理没有业务副作用。并发上限在内网网关实施：每实例只准一个上游推理请求在途、等待队列为零；饱和时网关必须在调用 Laya 前立即返回 `PROVIDER_OVERLOADED`，不得依赖上游 asyncio 锁排队，也不得无限排队。
 
 ## 7. 审计与数据留存
 

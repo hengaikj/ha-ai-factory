@@ -25,4 +25,4 @@ HD-001 至 HD-006 的 M02 范围已同步到 API、数据库和安全草案；M0
 
 ## Laya Runtime 后续范围决定（2026-09-23）
 
-项目负责人确认以后续独立内网 Laya 服务作为 Agent Runtime 决策 provider。首期只做人工复核前的内部决策辅助；禁止权限决策、Gate 审批、工具和其他外部副作用。生产服务间采用工作负载 mTLS 和受控证书轮换；请求字段、限额、错误和超时重试规则见 `laya-runtime-contract-v1.0.md` 及 `api/laya-inference-api.yaml`。此决定不撤销 M02 的 HD-002 / HD-006 延期。生产启用前仍需锁定具体模型制品并通过许可审查和中文业务离线评测。
+项目负责人确认以后续独立内网 Laya 服务作为 Agent Runtime 决策 provider。首期只做人工复核前的内部决策辅助；禁止权限决策、Gate 审批、工具和其他外部副作用。生产服务间采用工作负载 mTLS 和受控证书轮换；请求字段、限额、错误和超时重试规则见 `laya-runtime-contract-v1.0.md` 及 `api/laya-inference-api.yaml`。此决定不撤销 M02 的 HD-002 / HD-006 延期。专项 Contract Gate 仍待独立复审；生产启用前仍需锁定具体模型制品并通过许可审查和中文业务离线评测。
