@@ -8,9 +8,9 @@ Status: implementation completed; independent review pending
 
 - Internal user identity records and in-memory session creation/resolution, including rejection of unknown or inactive identities and expired sessions.
 - In-memory role assignments and permission evaluation with default-deny behavior. Unknown roles cannot be assigned.
-- Append-only in-memory audit events with immutable snapshots and removal of detail fields whose names indicate tokens, secrets, passwords, credentials, API keys, or authorization headers.
+- Append-only in-memory audit events with immutable snapshots and removal of detail fields whose normalized names indicate tokens, secrets, passwords, credentials, API keys, or authorization headers (including kebab-case and snake_case API-key names).
 - Spring context registers the identity/session, permission evaluation, and audit services with their in-memory adapters.
-- Vue 3 console shell with project/workflow placeholders and explicit status text indicating that authentication and persistent authorization are not connected.
+- Vue 3 console shell with project/workflow placeholders and explicit status text indicating that authentication and persistent authorization are not connected; audit copy states that memory records are cleared on restart and the page is not connected to them.
 
 ## Verification
 

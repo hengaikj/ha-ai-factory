@@ -42,12 +42,15 @@ class AuditLogServiceTest {
         details.put("SECRET", "do-not-store");
         details.put("password", "do-not-store");
         details.put("apiKey", "do-not-store");
+        details.put("x-api-key", "do-not-store");
+        details.put("api_key", "do-not-store");
         details.put("authorizationHeader", "do-not-store");
 
         AuditEvent event = service.record("user-1", "LOGIN_ATTEMPT", "session", "s-1", details);
 
         assertThat(event.details()).containsOnlyKeys("result");
-        assertThat(details).containsKeys("accessToken", "SECRET", "password", "apiKey", "authorizationHeader");
+        assertThat(details).containsKeys("accessToken", "SECRET", "password", "apiKey", "x-api-key",
+                "api_key", "authorizationHeader");
     }
 
     @Test

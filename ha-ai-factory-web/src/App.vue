@@ -130,7 +130,7 @@ const navigation = [
               <strong>还没有活动记录</strong>
               <span>新动态将在这里显示</span>
             </div>
-            <div class="activity-footer"><span class="footer-check">✓</span>活动记录将保留完整审计线索</div>
+            <div class="activity-footer"><span class="footer-check">✓</span>审计日志为进程内存，重启后清空；此页暂未接入数据</div>
           </section>
         </div>
 

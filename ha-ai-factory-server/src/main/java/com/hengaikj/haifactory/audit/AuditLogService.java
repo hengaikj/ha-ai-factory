@@ -37,7 +37,7 @@ public class AuditLogService {
         if (key == null) {
             return false;
         }
-        String normalized = key.toLowerCase(Locale.ROOT);
+        String normalized = key.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
         return normalized.contains("token") || normalized.contains("secret") || normalized.contains("password")
                 || normalized.contains("credential") || normalized.contains("apikey")
                 || normalized.contains("authorization") || normalized.contains("authheader");
