@@ -8,6 +8,6 @@ gates:
   requirement: approved
   design: approved
   contract: pending
-  development: pending_review
+  development: awaiting_pr_review
   integration: pending
   release: pending
