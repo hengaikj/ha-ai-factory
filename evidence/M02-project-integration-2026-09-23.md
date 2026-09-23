@@ -20,11 +20,12 @@
 - `cd ha-ai-factory-web && pnpm build`：通过；`vue-tsc -b` 与 Vite 生产构建成功。
 - `git diff --check`：通过。
 - 隔离 smoke 服务验证 Vite 页面 `/` 返回 200，代理请求 `/auth/session`、`/projects` 返回预期 401；OIDC 未配置时 `/auth/login` 返回预期 503。测试 MySQL、Spring 和 Vite 进程已停止/清理。
+- 浏览器级 OIDC E2E：使用一次性本地 OIDC 测试提供方和 MySQL 8 容器，通过 Vite 页面启动 OIDC 授权；测试提供方验证 S256 challenge/verifier，并签发短时 RSA-SHA256 测试 ID Token。Spring 校验并建立服务器会话后，浏览器成功创建项目（HTTP 201），随后通过服务端搜索、清除搜索和刷新读回项目；容器数据库确认测试主体拥有 1 个项目。该测试验证协议及应用集成，不替代企业 IdP 的生产环境认证验证。
 
 ## 独立复审与限制
 
 - 独立只读 Code Review 最终未发现剩余 findings；该复审不批准 Integration Gate。
-- 未配置真实企业 OIDC issuer/client credentials，未执行真人身份提供方授权回调的浏览器 E2E；PKCE 参数、回调失败、项目 API/数据库行为由 Spring MockMvc + MySQL 集成测试覆盖。
+- 未配置真实企业 OIDC issuer/client credentials；真人企业 IdP 的生产登录策略、MFA 与回调白名单仍需环境负责人验证。本次本地浏览器 E2E 使用模拟 IdP 验证了授权码 + PKCE、签名验证、会话 Cookie、CSRF、前端 API 代理和 MySQL 项目读写闭环。
 - 真实部署前仍需由环境负责人配置 OIDC issuer、回调白名单、客户端 Secret、MySQL 凭据与 TLS 边界。Agent Runtime 真实执行保持 HD-002 禁用状态。
 
 ## Gate 状态

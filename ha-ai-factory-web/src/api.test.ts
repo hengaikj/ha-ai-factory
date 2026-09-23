@@ -32,6 +32,13 @@ describe('contract API client', () => {
     await expect(beginLogin()).resolves.toBe(`${window.location.origin}/oauth2/authorization/enterprise`)
   })
 
+  it('falls back to top-level login navigation when the browser hides a manual redirect', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ status: 0, type: 'opaqueredirect' })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('window', { location: { origin: 'http://localhost' } })
+    await expect(beginLogin()).resolves.toBe('http://localhost/auth/login')
+  })
+
   it('uses the authenticated project-list route and preserves unauthorized state', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 401 }))
     vi.stubGlobal('fetch', fetchMock)

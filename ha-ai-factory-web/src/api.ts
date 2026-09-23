@@ -82,6 +82,10 @@ export async function beginLogin(): Promise<string> {
   } catch {
     throw new ApiError('无法连接登录服务，请检查后端是否已启动。', 0)
   }
+  // 浏览器对302/303的手动Fetch响应可能隐藏为opaque redirect；交给顶层导航正常完成OIDC跳转。
+  if (response.type === 'opaqueredirect' || response.status === 0) {
+    return new URL('/auth/login', window.location.origin).href
+  }
   if (response.status === 503) {
     throw new ApiError('企业账号登录暂不可用，请联系管理员检查 OIDC 登录配置后重试。', 503)
   }
