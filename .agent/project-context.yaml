@@ -1,0 +1,8 @@
+project:
+  name: HA AI Software Factory
+  template: XZG AI Project Template
+  template_version: 1
+  engineering_skill: XZG AI Software Engineering Skill
+  engineering_skill_version: 5.7
+  purpose: 通用 AI 原生软件工程项目模板
+  business_code_started: false
