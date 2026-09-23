@@ -238,17 +238,19 @@ components:
     ScoreAnswer:
       type: object
       additionalProperties: false
-      required: [type, score, legend, action]
+      required: [type, score, legend, probabilities, confidence, action]
       properties:
         type: { const: score }
-        score: { type: number }
+        score: { type: number, minimum: 0, maximum: 9, description: Expected zero-based ordinal score; Runtime also enforces score <= submitted criterion count - 1. }
         confidence: { type: number, minimum: 0, maximum: 1 }
         probabilities:
           type: object
+          propertyNames: { pattern: '^[0-9]$' }
           additionalProperties: { type: number, minimum: 0, maximum: 1 }
         legend:
           type: object
-          description: Mapping from score index to the submitted criterion text.
+          description: Must map each zero-based index 0..k-1 exactly to the submitted ordered criterion at that index.
+          propertyNames: { pattern: '^[0-9]$' }
           additionalProperties: { type: string }
         action: { $ref: '#/components/schemas/ActionMetadata' }
     NoulAnswer:

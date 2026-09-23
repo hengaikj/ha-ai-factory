@@ -53,7 +53,7 @@ Runtime 只发送服务端维护模板生成的请求。客户端不得覆盖下
 
 Runtime 必须校验响应 schema、请求关联、模型 allowlist、模板版本、结果类型和允许值。由于上游 Laya 不回显 `X-Request-ID`，受控网关必须将 Runtime 请求 ID 与该次上游 HTTP 交换作一对一关联，并在网关响应头原样返回 `X-Request-ID`；Runtime 校验匹配后才接受响应。未知标签、版本不匹配、缺失字段、无效 JSON 或低于批准阈值的结果均标记为 `FAILED_CLOSED` 并转人工处理。Laya 响应的 `routing.model` 必须为 `multilingual`；模型代码 revision、checkpoint 和权重摘要由 Runtime 从只读部署清单关联，不假设 Laya 响应提供这些摘要。
 
-上游 answer 结构包含与请求问题类型一致的 `type`、类型字段、必需的 `action.act_probability`；choice/score 答案还包含 `confidence` 与 `probabilities`，score 答案额外包含 `legend`，noul 答案包含 `confidence`。Runtime 必须按专项 API schema 校验这些字段，不得放行未知字段；`action.act_probability` 仅为模型输出元数据，不授权执行动作。
+上游 answer 结构包含与请求问题类型一致的 `type`、类型字段、必需的 `action.act_probability`；choice/score 答案还包含 `confidence` 与 `probabilities`，score 答案额外包含 `legend`，noul 答案包含 `confidence`。`score` 是按有序 criteria 计算的零起始 ordinal 期望值（`sum(i * p_i)`），不是某个离散等级；对 k 个 criteria，Runtime 必须校验 `0 <= score <= k-1`，并要求 `legend` 与 `probabilities` 的键恰为字符串索引 `0..k-1`，每个 legend 值与请求中同索引 criterion 完全一致。Runtime 必须按专项 API schema 校验这些字段，不得放行未知字段；`action.act_probability` 仅为模型输出元数据，不授权执行动作。
 
 成功响应只能表示“模型推理完成”，不得表示权限批准、Gate 通过或业务动作已执行。响应至少包含：
 
