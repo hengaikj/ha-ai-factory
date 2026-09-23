@@ -119,35 +119,38 @@ Expected: Reviewer 的 PASS/RETURN 报告保存并提交至 `evidence/laya-runti
 - Create: `ha-ai-agent-runtime/app/decision/providers/__init__.py`
 - Create: `ha-ai-agent-runtime/app/decision/providers/base.py`
 - Create: `ha-ai-agent-runtime/tests/unit/test_decision_models.py`
+- Create: `ha-ai-agent-runtime/tests/unit/test_runtime_config.py`
+- Create: `ha-ai-agent-runtime/tests/unit/test_provider_errors.py`
 
 **Interfaces:**
-- Consumes: Task 1 获批的 Runtime API、请求/响应 schema 和错误码。
-- Produces: `DecisionRequest`、`DecisionResponse`、`DecisionProviderError` 和 `DecisionModelProvider.predict(request) -> response`；模型字段和验证规则必须与批准的 API schema 一致。
+- Consumes: Task 1 获批的 Laya SystemOne API、请求/响应 schema 和错误码。
+- Produces: 严格镜像 Laya wire shape 的 `DecisionRequest`、`DecisionResponse`、稳定安全的 provider error types 和 `DecisionModelProvider.predict(request) -> response`。模板版本和上游发布版本由更高层部署/Runtime 配置管理，不塞入 Laya 请求体；仅接受 `multilingual` checkpoint。
+- The FastAPI container disables interactive docs and exposes no business route until the separate Java-to-Runtime API Contract is defined and independently approved.
 
-- [ ] **Step 1: 写决策 schema 的拒绝测试**
+- [x] **Step 1: 写决策 schema 的拒绝测试**
 
-测试合法批准字段通过；未定义字段、无效 question/template 版本、未知选择标签和超出批准长度的输入被 Pydantic 验证拒绝。测试字段和边界值直接取自 Task 1 获批 Contract。
+测试合法批准字段通过；未定义字段、未知标签、不匹配的 score legend/probability 索引、动态 score 越界、checkpoint 不符和缺少 provider 配置均失败关闭。测试字段和边界值直接取自 Task 1 获批 Contract。
 
 Run: `cd ha-ai-agent-runtime && pytest tests/unit/test_decision_models.py -q`
 Expected: 初始失败，因为 schema 尚未实现。
 
-- [ ] **Step 2: 实现请求与响应模型**
+- [x] **Step 2: 实现请求与响应模型**
 
-在 `models.py` 中只镜像 Contract 获批字段；配置 `extra="forbid"`；对标签、模型版本、问题模板版本和文本长度应用获批约束。不得增加客户端控制的模型 URL、服务地址、权限字段或工具字段。
+在 `models.py` 中只镜像 Laya API Contract 获批字段；配置 `extra="forbid"`，验证答案 ID、类型、标签、score 范围和 legend/probability 映射。不得增加客户端控制的模型 URL、服务地址、权限字段、模板版本或工具字段。
 
-- [ ] **Step 3: 定义 provider 协议和错误模型**
+- [x] **Step 3: 定义 provider 协议和错误模型**
 
-`base.py` 提供以下异步协议，并定义区分认证失败、远端不可用、超时、无效响应和版本不匹配的错误类型；错误不得携带 Secret 或完整原始输入。
+`base.py` 提供以下异步协议，并定义区分认证失败、远端不可用、超时、过载、无效响应和版本不匹配的稳定错误类型；错误不得携带 Secret、原始输入或上游异常 detail。
 
 ```python
 class DecisionModelProvider(Protocol):
     async def predict(self, request: DecisionRequest) -> DecisionResponse: ...
 ```
 
-- [ ] **Step 4: 运行单元测试并提交**
+- [x] **Step 4: 运行单元测试并提交**
 
-Run: `cd ha-ai-agent-runtime && pytest tests/unit/test_decision_models.py -q`
-Expected: PASS；Commit: `功能: 定义Runtime决策Provider契约`。
+Run: `cd ha-ai-agent-runtime && python -m pytest tests/unit -q`
+Expected: 13 cases PASS；Commit: `新增: 定义Runtime决策Provider契约`。
 
 ## Task 3: Add the Java-to-Runtime Trusted Bridge
 
