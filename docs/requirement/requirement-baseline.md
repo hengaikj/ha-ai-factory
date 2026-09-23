@@ -1,7 +1,7 @@
 # HA AI Software Factory 需求基线
 
 文档编号：REQ-HA-F00-001
-状态：待 Review / Requirement Gate 未批准
+状态：Requirement Gate 已批准（2026-09-23）
 项目：HA AI Software Factory
 
 ## 1. 项目背景
@@ -12,7 +12,7 @@ HA AI Software Factory 以 XZG AI Project Template 为基础，采用 XZG AI Sof
 
 ## 2. 项目目标
 
-1. 为一个 AI 软件项目提供统一的阶段、任务、交付物和门禁管理方式。
+1. 为多个并行 AI 软件项目提供统一的阶段、任务、交付物和门禁管理方式。
 2. 让项目参与者能够查看当前阶段、待完成工作、责任角色、门禁状态及相关证据。
 3. 通过模板和明确的质量门禁，帮助团队按顺序完成 Requirement、Design、Contract、Development、Review、Integration 和 Release 等工作。
 4. 支持 Orchestrator 协调 AI 工程角色与人工决策者，并在需求或契约存在歧义时显式记录待决事项。
@@ -57,7 +57,7 @@ HA AI Software Factory 以 XZG AI Project Template 为基础，采用 XZG AI Sof
 - 提供 Agent Runtime（Python/FastAPI），支持按项目任务调用 Agent 并返回执行状态与结果；模型供应商、可用工具及自动执行权限须经决策后配置，未批准的操作不得自动执行。
 - 首版支持多个并行项目；成员规模、部署拓扑和组织级多租户需求待确认。
 
-上述项目管理功能属于需求建议，仍需 Requirement Review 批准后作为正式范围。
+以上 MVP 范围已于 2026-09-23 经 Requirement Gate 批准，具体用户故事和产品验收条件由 `docs/product/prd.md` 进一步细化。
 
 ## 6. 非 MVP 范围
 
@@ -123,4 +123,4 @@ HA AI Software Factory 以 XZG AI Project Template 为基础，采用 XZG AI Sof
 | OI-008 | 是否需要组织级多租户、外部协作者或面向客户的项目视图？ | 影响权限、隔离及首版架构。 | 项目负责人 |
 | OI-009 | Release Gate 的批准人、交付方式、回滚和发布证据要求是什么？ | 影响发布流程和可验收结果。 | 项目负责人 / 发布负责人 |
 
-其他 Open Issues 在需求评审中确认。涉及接口或数据契约的决策，应在对应 Contract 阶段形成批准记录；当前状态维持 Requirement / 待 Review。
+其他 Open Issues 按各自影响在后续 Product、Design 或 Contract 工作中确认。涉及接口或数据契约的决策，应在对应 Contract 阶段形成批准记录；本需求基线状态为 Requirement Gate 已批准（2026-09-23）。
