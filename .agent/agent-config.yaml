@@ -1,0 +1,26 @@
+project:
+  name: HA AI Software Factory
+  template: XZG AI Project Template
+  template_version: 1
+  engineering_skill: XZG AI Software Engineering Skill
+  engineering_skill_version: 5.7
+
+agent_defaults:
+  language: zh-CN
+  lifecycle_source: SKILL.md
+  project_rules: .agent/rules.md
+  state_file: .agent/state.yaml
+
+engineering_rules:
+  commit_message_language: zh-CN
+  commit_prefixes: [新增, 修改, 修复, 文档, 优化]
+  require_approved_gates_before_dependent_work: true
+  contract_ambiguity_marker: HUMAN_DECISION_REQUIRED
+  database_table_and_column_comments: zh-CN
+  key_code_and_function_comments: zh-CN
+  prohibit_orchestrator_self_approval: true
+
+implementation_boundaries:
+  - Contract Gate 未批准前，不实现或修改对应 API 接口。
+  - Contract Gate 未批准前，不执行数据库契约草案或创建迁移。
+  - Agent Runtime 的模型、工具与操作未获批准前，不启用真实执行。

@@ -1,0 +1,8 @@
+# Build outputs
+**/target/
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+
+# Local operating system files
+.DS_Store

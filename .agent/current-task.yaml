@@ -1,0 +1,15 @@
+task_id: M01-FOUNDATION-INTERNAL-SKELETON
+title: M01 内部基础能力骨架实现
+status: implementation_completed_pending_review
+updated_at: 2026-09-23
+scope:
+  - 内存身份与会话服务
+  - 内存角色/权限默认拒绝评估
+  - 追加式内存审计日志
+  - 不含认证入口的静态控制台骨架
+constraints:
+  public_authentication_api: excluded
+  persistent_rbac: excluded
+  database_migrations: excluded
+  contract_files_modified: false
+  agent_runtime_execution: excluded
