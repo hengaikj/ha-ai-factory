@@ -1,13 +1,15 @@
-task_id: ARCH-HA-F00-001
-title: HA AI Software Factory 项目目录结构优化
-status: completed
-completed_at: 2026-09-23
+task_id: M01-FOUNDATION-INTERNAL-SKELETON
+title: M01 内部基础能力骨架实现
+status: implementation_completed_pending_review
+updated_at: 2026-09-23
 scope:
-  - 删除空的 backend/ 和 frontend/ 占位目录
-  - 保留 ha-ai-factory-server、ha-ai-factory-web、ha-ai-agent-runtime
-  - 创建 Agent 配置、当前任务文件及开发/运维/发布/测试/数据库目录
-  - 更新 README 目录说明
+  - 内存身份与会话服务
+  - 内存角色/权限默认拒绝评估
+  - 追加式内存审计日志
+  - 不含认证入口的静态控制台骨架
 constraints:
-  business_code_changed: false
-  api_created: false
-  contract_content_changed: false
+  public_authentication_api: excluded
+  persistent_rbac: excluded
+  database_migrations: excluded
+  contract_files_modified: false
+  agent_runtime_execution: excluded
