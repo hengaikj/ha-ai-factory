@@ -1,12 +1,12 @@
 """决策推理 Provider 抽象接口。"""
 
-from enum import StrEnum
+from enum import Enum
 from typing import Protocol
 
 from app.decision.models import DecisionRequest, DecisionResponse
 
 
-class ProviderErrorCode(StrEnum):
+class ProviderErrorCode(str, Enum):
     """Laya Contract 定义的稳定错误类别。"""
 
     INVALID_REQUEST = "INVALID_REQUEST"
