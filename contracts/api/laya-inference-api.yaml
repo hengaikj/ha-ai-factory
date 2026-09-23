@@ -226,7 +226,7 @@ components:
     ChoiceAnswer:
       type: object
       additionalProperties: false
-      required: [type, choice, action]
+      required: [type, choice, confidence, probabilities, action]
       properties:
         type: { const: choice }
         choice: { type: string }
@@ -256,7 +256,7 @@ components:
     NoulAnswer:
       type: object
       additionalProperties: false
-      required: [type, noul, action]
+      required: [type, noul, confidence, action]
       properties:
         type: { const: noul }
         noul: { type: number, minimum: 0, maximum: 1 }
