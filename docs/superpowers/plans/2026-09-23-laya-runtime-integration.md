@@ -41,7 +41,9 @@
 - `contracts/contract-decisions.md`：记录 Laya 用途和 HD-002/HD-006 范围变化及影响。
 - `contracts/contract-baseline-v1.0.md`、`contracts/contract-gate-approval.md`：仅在审批流程要求时更新本次 Runtime 专项基线与 Gate 状态。
 - `contracts/api/api-contract.yaml`：记录获批 Runtime 调用契约；不复活已删除的资源内容接口。
+- `contracts/api/laya-inference-api.yaml`：独立定义 Runtime 到 Laya 的私网推理协议、字段约束、mTLS 和错误语义。
 - `contracts/security/security-contract.md`：记录调用身份、数据最小化、隔离、审计和失败关闭策略。
+- `contracts/laya-runtime-contract-v1.0.md`：限定 Laya 后续模块的用途、运行边界和生产启用条件。
 - `ha-ai-agent-runtime/pyproject.toml`：锁定 Python 依赖及测试配置。
 - `ha-ai-agent-runtime/app/main.py`：创建 FastAPI 应用并挂载获批内部 Runtime 路由。
 - `ha-ai-agent-runtime/app/config.py`：读取经过验证的内部 Laya URL、超时和获批服务认证配置。
@@ -67,7 +69,9 @@
 - Modify: `contracts/contract-baseline-v1.0.md`
 - Modify: `contracts/contract-gate-approval.md`
 - Modify: `contracts/api/api-contract.yaml`
+- Create: `contracts/api/laya-inference-api.yaml`
 - Modify: `contracts/security/security-contract.md`
+- Modify: `contracts/laya-runtime-contract-v1.0.md`
 - Create: `evidence/laya-runtime-contract-review.md`
 
 **Interfaces:**
@@ -76,7 +80,7 @@
 
 - [x] **Step 1: 复核入口 Gate 已通过**
 
-Run: `rg -n "Status:|Latest global review decision|Global Contract Gate: PASS" contracts/contract-gate-approval.md evidence`
+Run: `rg -n "Status: PASS|Global decision: PASS|GLOBAL CONTRACT GATE: PASS" contracts/contract-gate-approval.md evidence`
 Expected: HEAD 中的 Gate 记录及证据确认 Global Contract Gate PASS。
 
 - [ ] **Step 2: 起草 Runtime 专项 Contract 决策**

@@ -21,3 +21,11 @@ Development 解锁条件:
 Scope boundary:
 - HD-002, HD-004, HD-005, and HD-006 remain explicitly deferred for M02 as recorded in `contracts/contract-decisions.md`.
 - Any new capability, including Laya Runtime execution, requires a separate Contract and independent review before implementation.
+
+## Additional Contract Scope: Laya Runtime
+
+Status: OWNER_CONFIRMED_PENDING_INDEPENDENT_REVIEW
+
+Contract: `contracts/laya-runtime-contract-v1.0.md` and `contracts/api/laya-inference-api.yaml`
+
+This additional scope does not change the Global Contract Gate PASS for the M02 baseline. M02 Runtime execution remains disabled. No Laya Runtime implementation may begin until the independent Reviewer records PASS for this scope and the evidence is committed to HEAD.

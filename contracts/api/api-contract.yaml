@@ -3,10 +3,11 @@ info:
   title: HA AI Software Factory API Contract
   version: 0.2.0-draft
   description: >-
-    M02 Project / Member / Gate scoped contract. Global Contract Gate remains
-    pending review; HD-002, HD-004, HD-005 and HD-006 are explicitly deferred
-    for M02 as recorded in ../contract-decisions.md.
-x-contract-status: m02-scoped-approved-global-pending-review
+    M02 Project / Member / Gate contract. Global Contract Gate is PASS.
+    HD-002, HD-004, HD-005 and HD-006 remain explicitly deferred for M02.
+    Laya Runtime inference is specified separately and remains disabled pending
+    its own Contract Gate.
+x-contract-status: m02-scoped-approved-global-pass
 x-deferred-decisions:
   HD-002: M02 does not enable real Agent Runtime execution or credentials.
   HD-004: Repository files are authoritative; system editing and file hosting are deferred.
@@ -14,11 +15,11 @@ x-deferred-decisions:
   HD-006: M02 has no Git, CI, test orchestration, notification, or other external integrations.
 servers:
   - url: https://{host}
-    description: Host and deployment topology are unresolved (OI-002).
+    description: Deployment-specific host; environment values are configured outside this contract.
     variables:
       host:
         default: api.example.invalid
-        description: Placeholder only; replace after OI-002 decision.
+        description: Example only; replace with the approved deployment host.
 security:
   - sessionCookie: []
 x-csrf-protection:

@@ -1,0 +1,236 @@
+openapi: 3.1.0
+info:
+  title: HA Agent Runtime to Laya Inference API
+  version: 1.0.0-draft
+  description: >-
+    Private service-to-service contract for approved typed inference. This API is
+    not reachable from browsers or the public network. Model selection is fixed
+    by the Laya deployment and is never supplied by the caller.
+servers:
+  - url: https://laya-inference.internal
+    description: Private mTLS gateway address supplied by the approved deployment; direct Laya process access is prohibited.
+security:
+  - runtimeWorkloadMtls: []
+x-network-boundary:
+  inference-caller: HA Agent Runtime workload only
+  health-probe-caller: Runtime or deployment orchestrator on the private network
+  ingress: private service network
+  public-or-browser-access: prohibited
+x-gateway-enforcement:
+  mtls-termination: approved private inference gateway
+  body-validation: strict SystemOneRequest schema; reject unknown fields including model
+  upstream-egress: only gateway may call the Laya process
+  laya-auto-task-detection: false
+  laya-preloaded-checkpoints: [multilingual]
+  laya-upstream-model: multilingual
+  laya-bearer-key: optional additional gateway-to-Laya check, secret-managed
+x-timeouts:
+  connect-seconds: 2
+  attempt-total-seconds: 5
+x-retry-policy:
+  max-retries: 1
+  retryable: [connection-error, timeout, 503]
+  reuse-request-body: true
+  reuse-request-id: true
+  backoff-milliseconds: 200
+  max-operation-seconds: 10.2
+  non-retryable: [400, 401, 403, 422]
+x-admission-control:
+  max-in-flight-per-instance: 1
+  waiting-queue: 0
+  overload-status: 503
+x-model-policy:
+  checkpoint: multilingual
+  upstream-model-field: injected-as-fixed-constant-by-gateway
+  allowed-checkpoints: [multilingual]
+  disabled-checkpoints: [english, typed-decisions]
+  required-loaded-checkpoints: [multilingual]
+  caller-may-select-model: false
+paths:
+  /health:
+    get:
+      operationId: layaHealth
+      summary: Check that the Laya process and approved checkpoint are ready
+      security: []
+      responses:
+        '200':
+          description: Process health. Runtime sends inference only when the approved multilingual checkpoint is loaded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, loaded]
+                properties:
+                  status: { type: string, const: ok }
+                  loaded:
+                    type: array
+                    items: { type: string, enum: [english, multilingual, typed-decisions] }
+                  device: { type: string }
+        default:
+          description: Health probe failed.
+  /v1/systemone:
+    post:
+      operationId: inferTypedDecision
+      summary: Evaluate approved typed questions over a sanitized task summary
+      parameters:
+        - name: X-Request-ID
+          in: header
+          required: true
+          description: Runtime-generated correlation ID; it is not model input.
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SystemOneRequest' }
+      responses:
+        '200':
+          description: Typed model result. The result is untrusted and requires Runtime validation and human review.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SystemOneResponse' }
+        '400':
+          description: Malformed request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderError' }
+        '401':
+          description: Workload authentication failed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderError' }
+        '422':
+          description: Request schema or question is invalid.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderError' }
+        '503':
+          description: Model unavailable, not ready, or admission limit reached.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderError' }
+components:
+  securitySchemes:
+    runtimeWorkloadMtls:
+      type: mutualTLS
+      description: Runtime workload certificate is issued and rotated by the approved private environment.
+  schemas:
+    SystemOneRequest:
+      type: object
+      additionalProperties: false
+      required: [state, questions]
+      properties:
+        state:
+          type: string
+          maxLength: 4000
+          description: Sanitized minimum-necessary task summary; no project, user, credential, or full-body identifiers.
+        questions:
+          type: object
+          minProperties: 1
+          maxProperties: 8
+          propertyNames: { pattern: '^[a-z][a-z0-9_]{0,63}$' }
+          additionalProperties: { $ref: '#/components/schemas/Question' }
+    Question:
+      oneOf:
+        - $ref: '#/components/schemas/ChoiceQuestion'
+        - $ref: '#/components/schemas/ScoreQuestion'
+        - $ref: '#/components/schemas/NoulQuestion'
+    ChoiceQuestion:
+      type: object
+      additionalProperties: false
+      required: [type, instructions, criteria]
+      properties:
+        type: { const: choice }
+        instructions: { type: string, minLength: 1, maxLength: 1000 }
+        criteria:
+          type: object
+          minProperties: 2
+          maxProperties: 32
+          propertyNames: { pattern: '^[a-z][a-z0-9_-]{0,63}$' }
+          additionalProperties: { type: string, maxLength: 256 }
+    ScoreQuestion:
+      type: object
+      additionalProperties: false
+      required: [type, instructions, criteria]
+      properties:
+        type: { const: score }
+        instructions: { type: string, minLength: 1, maxLength: 1000 }
+        criteria:
+          type: array
+          minItems: 2
+          maxItems: 10
+          items: { type: string, minLength: 1, maxLength: 128 }
+    NoulQuestion:
+      type: object
+      additionalProperties: false
+      required: [type, instructions]
+      properties:
+        type: { const: noul }
+        instructions: { type: string, minLength: 1, maxLength: 1000 }
+    SystemOneResponse:
+      type: object
+      additionalProperties: false
+      required: [model, answers, usage, routing]
+      properties:
+        model:
+          type: string
+          description: Actual upstream model identifier; Runtime validates it against the deployment allowlist.
+        answers:
+          type: object
+          minProperties: 1
+          description: Answer keys must exactly match request question IDs.
+          additionalProperties: { $ref: '#/components/schemas/Answer' }
+        usage:
+          type: object
+          additionalProperties: false
+          required: [input_tokens, output_tokens]
+          properties:
+            input_tokens: { type: integer, minimum: 0 }
+            output_tokens: { type: integer, minimum: 0 }
+        routing:
+          type: object
+          additionalProperties: true
+          description: Upstream routing metadata; selected checkpoint must match the approved deployment allowlist.
+          required: [model]
+          properties:
+            model: { type: string, enum: [multilingual] }
+            repo: { type: string }
+            reason: { type: string, maxLength: 512 }
+        latency_ms: { type: number, minimum: 0 }
+    Answer:
+      oneOf:
+        - $ref: '#/components/schemas/ChoiceAnswer'
+        - $ref: '#/components/schemas/ScoreAnswer'
+        - $ref: '#/components/schemas/NoulAnswer'
+    ChoiceAnswer:
+      type: object
+      additionalProperties: false
+      required: [choice]
+      properties:
+        choice: { type: string }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        probabilities:
+          type: object
+          additionalProperties: { type: number, minimum: 0, maximum: 1 }
+    ScoreAnswer:
+      type: object
+      additionalProperties: false
+      required: [score]
+      properties:
+        score: { type: number }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        probabilities:
+          type: object
+          additionalProperties: { type: number, minimum: 0, maximum: 1 }
+    NoulAnswer:
+      type: object
+      additionalProperties: false
+      required: [noul]
+      properties:
+        noul: { type: number, minimum: 0, maximum: 1 }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+    ProviderError:
+      type: object
+      required: [detail]
+      properties:
+        detail: { type: string, maxLength: 512, description: Stable error text; must not contain prompt, state, credential, or other project data. }

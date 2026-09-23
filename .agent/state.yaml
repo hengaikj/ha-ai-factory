@@ -1,13 +1,14 @@
 project_state:
   bootstrap: complete
   current_phase: Contract
-  next_gate: Laya Runtime Contract Gate
-  active_task: LAYA-RUNTIME-CONTRACT
+  next_gate: Laya Runtime Contract Review
+  active_task: LAYA-RUNTIME-CONTRACT-REVIEW
   updated_at: 2026-09-23
 gates:
   requirement: approved
   design: approved
   contract: approved
+  laya_runtime_contract: owner_confirmed_pending_independent_review
   m02_project_member_gate_contract: approved_scoped
   development: complete
   integration: pending

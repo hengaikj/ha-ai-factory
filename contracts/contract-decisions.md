@@ -1,9 +1,9 @@
 # Contract 阶段人工决策清单
 
-状态：M02 范围决策已确认；全局 Contract Gate 待独立复审。HD-001、HD-002、HD-003、HD-004、HD-005、HD-006 已按项目负责人决定记录；Agent Runtime、系统内交付物编辑、正式 SLA/备份承诺和外部集成均延期，不属于当前 M02 实施范围。
+状态：M02 范围决策已确认；全局 Contract Gate PASS；Laya Runtime 后续专项 Contract 待独立复审。HD-001、HD-002、HD-003、HD-004、HD-005、HD-006 已按项目负责人决定记录；Agent Runtime、系统内交付物编辑、正式 SLA/备份承诺和外部集成均延期，不属于当前 M02 实施范围。
 依据：`docs/requirement/requirement-baseline.md`、`docs/product/prd.md`、`docs/design/ux-ui-spec.md`、`contracts/api/api-contract.yaml`、`contracts/database/schema-draft.sql`、`contracts/security/security-contract.md`
 
-项目负责人于 2026-09-23 在当前会话确认 HD-001、HD-003 的下述选择，并确认 HD-002、HD-004、HD-005、HD-006 按本表范围延期。该确认授权同步更新 API、数据库和安全契约草案，不代表 Contract Gate 已通过，也不授权业务接口或迁移实施。
+项目负责人于 2026-09-23 确认 HD-001、HD-003 的下述选择，并确认 HD-002、HD-004、HD-005、HD-006 按本表范围延期；这些记录描述 M02 的批准边界，不代表超出该范围的 Runtime 实施获批。
 
 | 决策 | 关联事项 | 需负责人确认的具体内容 | 当前影响 |
 | --- | --- | --- | --- |
@@ -21,4 +21,8 @@
 
 ## 当前门禁判断
 
-HD-001 至 HD-006 的当前范围已同步到 API、数据库和安全草案；M02 scoped Contract Review 结果为 `PASS`（见 `evidence/contract-review-M02-2026-09-23.md`）。部署网络边界、issuer、密钥托管和轮换仍需在环境契约中确认。全局 Contract Gate 等待独立复审和批准；M02 Project/Member/Gate 仍须满足适用 Design Gate、基线提交和独立复审条件。
+HD-001 至 HD-006 的 M02 范围已同步到 API、数据库和安全草案；M02 scoped Contract Review 为 `PASS`，Global Contract Gate 于 2026-09-23 独立复审 PASS（见 `evidence/contract-review-global-rereview-2026-09-23.md`）。Laya Runtime 后续专项 Contract 仍待独立复审。
+
+## Laya Runtime 后续范围决定（2026-09-23）
+
+项目负责人确认以后续独立内网 Laya 服务作为 Agent Runtime 决策 provider。首期只做人工复核前的内部决策辅助；禁止权限决策、Gate 审批、工具和其他外部副作用。生产服务间采用工作负载 mTLS 和受控证书轮换；请求字段、限额、错误和超时重试规则见 `laya-runtime-contract-v1.0.md` 及 `api/laya-inference-api.yaml`。此决定不撤销 M02 的 HD-002 / HD-006 延期。生产启用前仍需锁定具体模型制品并通过许可审查和中文业务离线评测。

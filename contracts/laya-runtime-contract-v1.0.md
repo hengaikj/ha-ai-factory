@@ -1,8 +1,9 @@
-# Laya Runtime 专项 Contract v1.0（草案）
+# Laya Runtime 专项 Contract v1.0
 
 项目：HA AI Software Factory  
 状态：OWNER-CONFIRMED，待独立 Contract Reviewer 审查
 关联设计：[Laya Runtime 集成设计](../docs/superpowers/specs/2026-09-23-laya-runtime-integration-design.md)
+上游协议参考：[Laya Self-Hosting HTTP Server](https://github.com/NandhaKishorM/laya#self-hosting-http-server-jev-compatible)、[laya/serve.py](https://github.com/NandhaKishorM/laya/blob/main/laya/serve.py)
 
 ## 1. 范围与边界
 
@@ -28,7 +29,7 @@ Java 后端仍是用户身份、项目 RBAC 和任务授权的权威来源。Age
 2. Java 后端向 Runtime 传递受限服务身份，身份包含 issuer、subject、project、task、audience 和签发时间；有效期不得超过 HD-001 已批准的 10 分钟。
 3. Runtime 仅接受来自受信任 HA 后端的服务身份，并校验项目、任务、配置状态和允许能力。
 4. Runtime 到 Laya 只允许内部网络访问；浏览器、公网和其他项目工作负载不得访问 Laya 推理入口。
-5. 最终服务认证方案（mTLS、短时服务凭据及密钥轮换）须在批准前由负责人确认并写入环境契约。固定 API Key 不能单独作为生产服务身份方案。
+5. 生产服务认证采用 Runtime 工作负载 mTLS；只允许受信任 Runtime 工作负载经内部网络访问 Laya。mTLS 在受控推理服务网关终止；网关严格校验 `SystemOneRequest` 并拒绝未定义字段，包括 Runtime 传来的 `model`，随后固定向 Laya 注入 `model=multilingual`。只有网关能连接 Laya 进程。Laya 配置 `LAYA_AUTO_TASK=0`，只预加载 `multilingual`。网关到 Laya 只走同一受限服务网络。证书由受控环境签发、托管和轮换。Laya 自带的静态 Bearer key 可作为额外校验，但不能替代 mTLS 或成为唯一生产身份。
 
 ## 4. 请求契约
 
@@ -36,24 +37,23 @@ Runtime 只发送服务端维护模板生成的请求。客户端不得覆盖下
 
 | 字段 | 约束 |
 | --- | --- |
-| `projectId` | 来自已验证服务身份；不得由请求体决定 |
-| `taskId` | 来自已验证服务身份；必须属于 `projectId` |
-| `templateVersion` | 服务端 allowlist 中的已批准版本 |
-| `questionType` | `choice`、`score` 或 `noul`，由模板绑定 |
-| `question` | 模板渲染后的最小必要文本；长度上限待批准 |
-| `choices` | 仅 `choice` 类型使用；标签来自模板 allowlist |
-| `modelVersion` | 服务端锁定版本；客户端不可指定 |
-| `requestId` | 服务端生成的幂等关联标识 |
+| `state` | 仅含已脱敏的最小任务摘要，字符串长度不超过 4,000 字符；不得包含项目/用户标识、凭据或完整任务正文 |
+| `questions` | 每次 1 至 8 个服务端批准的问题；question ID 与模板版本绑定 |
+| `question.type` | `choice`、`score` 或 `noul`，由已批准模板固定 |
+| `question.instructions` | 服务端维护的问题指令，每项不超过 1,000 字符；调用者不可覆盖 |
+| `question.criteria` | `choice` 为 2 至 32 个标签映射，rubric 每项不超过 256 字符；`score` 为 2 至 10 个有序级别，每项不超过 128 字符；`noul` 可省略 |
+| `model` | Runtime 请求体不得包含；网关固定向 Laya 注入 `multilingual`，调用方不可指定其他模型 |
+| `requestId` | Runtime 生成并写入内部审计的关联 ID；不得放入发送给 Laya 的 state 内容 |
 
-原始任务正文、凭据、系统提示、任意 Python 代码、工具参数和未脱敏敏感字段不得发送至 Laya。具体脱敏规则、长度上限和允许业务字段须由负责人确认。
+原始任务正文、凭据、系统提示、任意 Python 代码、工具参数和未脱敏敏感字段不得发送至 Laya。Runtime 到 Laya 的 wire schema、字段上限和选择规则详见 [`laya-inference-api.yaml`](api/laya-inference-api.yaml)。
 
 ## 5. 响应契约
 
-Runtime 必须校验响应 schema、`requestId`、模型版本、模板版本、结果类型和允许值。未知标签、版本不匹配、缺失字段、无效 JSON 或低于批准阈值的结果均标记为 `FAILED_CLOSED` 并转人工处理。
+Runtime 必须校验响应 schema、`X-Request-ID` 关联、模型 allowlist、模板版本、结果类型和允许值。未知标签、版本不匹配、缺失字段、无效 JSON 或低于批准阈值的结果均标记为 `FAILED_CLOSED` 并转人工处理。Laya 响应的 `routing.model` 必须为 `multilingual`；模型代码 revision、checkpoint 和权重摘要由 Runtime 从只读部署清单关联，不假设 Laya 响应提供这些摘要。
 
 成功响应只能表示“模型推理完成”，不得表示权限批准、Gate 通过或业务动作已执行。响应至少包含：
 
-- `requestId`；
+- Runtime `requestId`（由调用关联，不作为 Laya 推理结果字段）；
 - `questionType`；
 - 类型化结果（选择标签、分数或 `noul`）；
 - 模型版本和权重摘要；
@@ -65,7 +65,7 @@ Runtime 必须校验响应 schema、`requestId`、模型版本、模板版本、
 
 以下情况必须失败关闭，不得静默切换模型或执行后续副作用：配置缺失、配置未批准、身份无效、跨项目任务、权限不足、Laya 不可用、认证失败、超时、限流、响应校验失败、模型/模板版本不匹配和低可信结果。
 
-错误响应只返回稳定错误码和下一步操作提示，不返回密钥、完整提示词或其他项目数据。非幂等动作不得自动重试；推理重试次数、超时、限流和排队上限须在批准前确认。
+错误响应只返回稳定错误码和下一步操作提示，不返回密钥、完整提示词或其他项目数据。连接超时为 2 秒、单次尝试总超时为 5 秒；最多一次重试，仅限连接失败、超时或 HTTP 503，并复用相同请求体及 `X-Request-ID`，等待 200 毫秒后重试；总操作时限为 10.2 秒。4xx、认证失败、模型校验错误和响应错误不重试。推理没有业务副作用；并发/队列饱和时立即返回 `PROVIDER_OVERLOADED`，不得无限排队。
 
 ## 7. 审计与数据留存
 
@@ -77,16 +77,17 @@ Runtime 必须校验响应 schema、`requestId`、模型版本、模板版本、
 
 部署必须锁定 Laya 代码 revision、模型 checkpoint、权重摘要、Python 依赖和许可证信息。生产运行时不得从公网动态下载模型。上游 benchmark 不替代 HA Factory 自有中文和实际业务评测；上线前必须有负责人批准的离线评测集、指标、校准/拒答阈值和人工升级规则。
 
-## 9. 已确认的 Open Issues
+## 9. 已确认决策与剩余上线条件
 
-- OI-LAYA-001：首期仅允许内部决策辅助；禁止权限、Gate、工具、Git、CI、通知和其他外部副作用。
-- OI-LAYA-002：Runtime 到 Laya 使用内部 mTLS 或等效短时工作负载身份；密钥由受控环境托管并轮换，固定 API Key 不作为唯一生产身份。
-- OI-LAYA-003：只发送最小任务字段；原文、凭据和敏感字段脱敏后才可发送；单问题文本上限 4,000 字符，choice 选项最多 32 个；普通日志不保留原文。
-- OI-LAYA-004：连接超时 2 秒、总调用超时 5 秒；推理请求最多一次幂等重试；非幂等动作不重试；并发和排队超限直接失败关闭。
-- OI-LAYA-005：模型代码 revision、checkpoint、权重摘要、Python 依赖和许可证必须在部署清单中锁定；禁止公网动态下载。
-- OI-LAYA-006：上线前须完成中文业务离线评测，并由负责人确认准确率、校准、拒答和人工升级阈值；未达标保持禁用。
-- OI-LAYA-007：本 Contract 作为 HD-002 的后续范围提案；M02 真实 Runtime 继续禁用，只有专项 Gate PASS 后才允许在后续模块启用。
+- 已确认用途：首期仅允许内部决策辅助；禁止权限、Gate、工具、Git、CI、通知和其他外部副作用。
+- 已确认服务身份：生产使用 Runtime 工作负载 mTLS；证书由受控环境管理和轮换；静态 API key 不能作为唯一认证。
+- 已确认请求限制：最小脱敏 state 不超过 4,000 字符；1 至 8 个问题；choice 标签 2 至 32 个、每项 rubric 不超过 256 字符，score 级别 2 至 10、每项不超过 128 字符；问题指令每项不超过 1,000 字符；普通日志不保留原文。
+- 已确认韧性策略：连接超时 2 秒、单次调用总超时 5 秒；仅连接失败、超时或 HTTP 503 可重试一次；4xx、认证失败、版本/响应错误不重试；并发或排队超限失败关闭。
+- 已确认供应链边界：模型代码 revision、checkpoint、权重摘要、Python 依赖和许可证必须在部署清单锁定；禁止公网动态下载。
+- 首期 checkpoint 范围：固定采用 `multilingual` checkpoint（上游 standalone 模型 `convaiinnovations/laya-multilingual`），由网关注入，不开放模型选择；`english` 和 `typed-decisions` 禁用。模型 revision 和权重摘要仍须锁定后才能生产启用。
+- 已确认范围：M02 真实 Runtime 继续禁用；专项 Gate PASS 后，才可在后续模块启用本 Contract 定义的 Laya 决策辅助能力。
+- 剩余生产上线条件：锁定实际 Laya release/checkpoint revision 与权重摘要；完成许可审查、中文业务离线评测，并由负责人确认准确率、校准、拒答和人工升级阈值；未达标保持禁用。该条件不阻止契约审查通过或模拟/离线集成开发。
 
 ## 10. Gate 条件
 
-本 Contract 仍不得单独作为开发输入。只有在 API 与安全契约完成对齐、独立 Reviewer 记录 PASS 并将证据提交到 HEAD 后，才可进入 Runtime 实现阶段。
+本 Contract 仍不得单独作为开发输入。只有 API 与安全契约完成对齐、独立 Reviewer 记录 PASS 并将证据提交到 HEAD 后，才可进入 Runtime 实现阶段。生产模型调用还要求模型制品锁定、许可审查和离线评测门槛满足第 9 节。
