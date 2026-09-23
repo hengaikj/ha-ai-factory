@@ -83,26 +83,26 @@
 Run: `rg -n "Status: PASS|Global decision: PASS|GLOBAL CONTRACT GATE: PASS" contracts/contract-gate-approval.md evidence`
 Expected: HEAD 中的 Gate 记录及证据确认 Global Contract Gate PASS。
 
-- [ ] **Step 2: 起草 Runtime 专项 Contract 决策**
+- [x] **Step 2: 起草 Runtime 专项 Contract 决策**
 
 在决策清单和 API/安全契约中只加入项目负责人批准的用途、字段、服务身份、模板版本、模型版本、审计及失败语义。保持当前 M02 API/数据库范围不变，除非获批 Contract 明确要求并独立审查相应修改。
 
-- [ ] **Step 3: 校验契约格式和跨文件一致性**
+- [x] **Step 3: 校验契约格式和跨文件一致性**
 
 Run: `python3 -c 'import yaml; yaml.safe_load(open("contracts/api/api-contract.yaml", encoding="utf-8"))'`
 Run: `git diff --check`
 Expected: YAML 可解析且无空白错误；API、安全和决策清单中的请求字段、状态和拒绝规则一致。
 
-- [ ] **Step 4: 提交待独立复核的契约基线**
+- [x] **Step 4: 提交待独立复核的契约基线**
 
 使用中文提交信息：`文档: 提交Laya Runtime专项契约待审`。推送后以该 commit 为独立 Reviewer 的唯一审查基线。
 
-- [ ] **Step 5: 独立 Contract Reviewer 复核并记录决定**
+- [x] **Step 5: 独立 Contract Reviewer 复核并记录决定**
 
 Review: 比较设计规格、决策清单、API Contract 和 Security Contract；核对 HD-002/HD-006 范围变更、身份边界、数据流、审计、模型版本及失败处理。
 Expected: Reviewer 的 PASS/RETURN 报告保存并提交至 `evidence/laya-runtime-contract-review.md`。若为 RETURN，按报告修订契约，提交修订并重新审查；专项 Contract PASS 之前不执行 Task 2–7。
 
-- [ ] **Step 6: 记录并提交 Contract Gate PASS**
+- [x] **Step 6: 记录并提交 Contract Gate PASS**
 
 仅在独立 PASS 证据已进入 HEAD 后，将 Gate 状态更新为 PASS 并提交：`文档: 记录Laya Runtime Contract Gate通过`。只暂存本任务明确列出的契约与审查证据文件。
 

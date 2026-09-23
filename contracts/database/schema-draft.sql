@@ -1,5 +1,5 @@
--- 数据库契约草案（MySQL 8）。仅用于 Contract Gate 评审，批准前不得执行或据此修改数据库。
--- M02 范围契约：HD-001/HD-003 已确认；HD-002/HD-004/HD-005/HD-006 按负责人决定明确延期。全局 Contract Gate 仍待独立复审。
+-- 数据库契约草案（MySQL 8）。仅用于 Contract Gate 评审；不得据此执行或修改数据库。
+-- M02 范围契约：HD-001/HD-003 已确认；HD-002/HD-004/HD-005/HD-006 按负责人决定明确延期。Global Contract Gate 已独立复审 PASS。
 
 CREATE TABLE principals (
     principal_ref CHAR(36) NOT NULL COMMENT '系统内部稳定主体UUID',

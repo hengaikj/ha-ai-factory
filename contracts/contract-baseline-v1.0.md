@@ -14,4 +14,4 @@ Scope: M02 Project / Member / Gate contract alignment and explicit deferral of H
 - HD-005: M02 接受默认运营边界，不承诺正式 SLA、容量、审计保留、备份 RPO/RTO 或合规指标。
 - HD-006: M02 不接入 Git、CI、测试编排、通知或其他外部服务。
 
-独立 Reviewer 已于 2026-09-23 对 M02 Project / Member / Gate 范围给出 scoped PASS，详见 `evidence/contract-review-M02-2026-09-23.md`；Global Contract Gate 于 2026-09-23 独立复审 PASS，详见 `evidence/contract-review-global-rereview-2026-09-23.md`。HD-002、HD-004、HD-005、HD-006 的 M02 延期继续有效。Laya Runtime 后续能力由单独的 `laya-runtime-contract-v1.0.md` 管理，在其独立 Gate 通过前不作为实现输入。
+独立 Reviewer 已于 2026-09-23 对 M02 Project / Member / Gate 范围给出 scoped PASS，详见 `evidence/contract-review-M02-2026-09-23.md`；Global Contract Gate 于 2026-09-23 独立复审 PASS，详见 `evidence/contract-review-global-rereview-2026-09-23.md`。HD-002、HD-004、HD-005、HD-006 的 M02 延期继续有效。Laya Runtime 后续能力由单独的 `laya-runtime-contract-v1.0.md` 管理，专项 Contract Gate 于 2026-09-23 独立复审 PASS，证据见 `evidence/laya-runtime-contract-review.md`；生产启用仍受该专项 Contract 的制品、许可与离线评测条件约束。

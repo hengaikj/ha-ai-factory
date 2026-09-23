@@ -24,8 +24,9 @@ Scope boundary:
 
 ## Additional Contract Scope: Laya Runtime
 
-Status: OWNER_CONFIRMED_PENDING_INDEPENDENT_REVIEW
+Status: PASS
 
 Contract: `contracts/laya-runtime-contract-v1.0.md` and `contracts/api/laya-inference-api.yaml`
+Independent review: PASS on 2026-09-23; evidence: `evidence/laya-runtime-contract-review.md` (reviewed target `4d3eef95862849aa6133d01f9b48ea1c95fce411`, evidence committed to HEAD `053cdbb3d4521c3442d3e7fa3eebc901c8cf97fd`).
 
-This additional scope does not change the Global Contract Gate PASS for the M02 baseline. M02 Runtime execution remains disabled. No Laya Runtime implementation may begin until the independent Reviewer records PASS for this scope and the evidence is committed to HEAD.
+This additional scope does not change the Global Contract Gate PASS for the M02 baseline. Laya Runtime implementation may proceed only within this approved Contract, without enabling M02 real Runtime execution or production model calls. Production activation still requires the model revision and weight digest to be locked, license review, and approved Chinese offline evaluation under `contracts/laya-runtime-contract-v1.0.md`.

@@ -1,6 +1,6 @@
 # Security Contract
 
-文档状态：M02 安全契约已通过全局 Contract Gate；Laya Runtime 后续扩展待独立复审
+文档状态：M02 安全契约已通过全局 Contract Gate；Laya Runtime 专项 Contract Gate 已独立复审 PASS
 适用范围：已批准 MVP 的多项目管理、工程流程、评审、审计与 Agent Runtime  兼容基线：`docs/requirement/requirement-baseline.md`、`docs/product/prd.md`、`docs/design/ux-ui-spec.md`
 
 本文件记录已批准的安全约束，以及 M02 对后续能力的明确延期。Laya Runtime 后续能力以第 4 节及独立专项 Contract 为准。
@@ -75,7 +75,7 @@ Owner/Admin 可加入或移除成员；移除生效后所有后续请求立即�
 
 M02 不启用真实 Agent Runtime，不调用模型或工具，不配置或读取凭据，也不产生外部副作用。M02 只保留配置状态查询和失败关闭接口：配置缺失、未批准、拒绝、过期或校验失败均拒绝启动并返回可识别错误。真实执行、模型/工具白名单、批准撤销和 Secret 契约须由后续独立 Contract 决定。
 
-### Laya Runtime 后续范围 — 项目负责人已确认，专项 Gate 待审
+### Laya Runtime 后续范围 — 专项 Contract Gate PASS（2026-09-23）
 
 - Laya 仅作为后续 Agent Runtime 的内部推理 provider；M02 的真实 Runtime 执行、模型配置和凭据延期不变。
 - Java 后端先校验 OIDC 会话和项目/任务权限，再签发最长 10 分钟、audience 限定且带原始 issuer+subject 的服务身份给 Runtime。Runtime 拒绝浏览器 Cookie 和客户端伪造 actor。
@@ -124,7 +124,7 @@ M02 不接入 Git、CI、测试编排、通知或其他外部服务；仅保留�
 
 ## 9. 批准状态
 
-- API Contract：M02 Project/Member/Gate scoped review 为 PASS；Global Contract Gate 为 PASS；Laya Runtime 专项 Gate 待独立复审。
+- API Contract：M02 Project/Member/Gate scoped review 为 PASS；Global Contract Gate 为 PASS；Laya Runtime 专项 Gate 独立复审 PASS。
 - Database Contract：M02 草案已同步仓库文件引用、Runtime 未执行状态和默认运行边界；真实执行、文件托管与正式运维指标延期。
-- Security Contract：HD-001、HD-003 已确认，HD-002/HD-004/HD-005/HD-006 已明确延期；M02 scoped review 和 Global Contract Gate 均为 PASS；Laya Runtime 专项范围仍待独立复审。
-- Gate：M02 Global Contract Gate 为 PASS。Laya Runtime 专项 Gate 未通过前，不授权真实模型调用或生产部署；契约通过后仍须在模型制品锁定和离线评测完成前保持生产禁用。
+- Security Contract：HD-001、HD-003 已确认，HD-002/HD-004/HD-005/HD-006 已明确延期；M02 scoped review、Global Contract Gate 和 Laya Runtime 专项 Gate 均为 PASS。
+- Gate：M02 Global Contract Gate 和 Laya Runtime 专项 Contract Gate 均为 PASS；M02 真实执行仍延期。生产模型调用须在模型制品锁定、许可审查和离线评测完成前保持禁用。

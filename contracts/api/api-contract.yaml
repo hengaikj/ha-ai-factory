@@ -5,8 +5,8 @@ info:
   description: >-
     M02 Project / Member / Gate contract. Global Contract Gate is PASS.
     HD-002, HD-004, HD-005 and HD-006 remain explicitly deferred for M02.
-    Laya Runtime inference is specified separately and remains disabled pending
-    its own Contract Gate.
+    Laya Runtime inference is specified separately; its Contract Gate has passed,
+    but real Runtime execution remains disabled for M02 under the HD-002 deferral.
 x-contract-status: m02-scoped-approved-global-pass
 x-deferred-decisions:
   HD-002: M02 does not enable real Agent Runtime execution or credentials.

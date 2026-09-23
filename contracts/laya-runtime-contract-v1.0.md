@@ -1,7 +1,7 @@
 # Laya Runtime 专项 Contract v1.0
 
 项目：HA AI Software Factory  
-状态：OWNER-CONFIRMED，待独立 Contract Reviewer 审查
+状态：独立 Contract Gate PASS（2026-09-23）；生产启用条件见第 9 节
 关联设计：[Laya Runtime 集成设计](../docs/superpowers/specs/2026-09-23-laya-runtime-integration-design.md)
 上游协议参考：[Laya Self-Hosting HTTP Server](https://github.com/NandhaKishorM/laya#self-hosting-http-server-jev-compatible)、[laya/serve.py](https://github.com/NandhaKishorM/laya/blob/main/laya/serve.py)
 
@@ -96,4 +96,4 @@ Runtime 外部错误响应只返回稳定错误码和下一步操作提示，不
 
 ## 10. Gate 条件
 
-本 Contract 仍不得单独作为开发输入。只有 API 与安全契约完成对齐、独立 Reviewer 记录 PASS 并将证据提交到 HEAD 后，才可进入 Runtime 实现阶段。生产模型调用还要求模型制品锁定、许可审查和离线评测门槛满足第 9 节。
+API 与安全契约已对齐；独立 Reviewer 于 2026-09-23 记录 PASS，证据为 [`laya-runtime-contract-review.md`](../evidence/laya-runtime-contract-review.md)，并已提交到 HEAD。Runtime 实现可按本 Contract 开始。M02 真实 Runtime 执行仍保持禁用；生产模型调用还要求模型制品锁定、许可审查和离线评测门槛满足第 9 节。
