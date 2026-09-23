@@ -1,7 +1,7 @@
 # Laya Runtime 专项 Contract v1.0（草案）
 
 项目：HA AI Software Factory  
-状态：DRAFT，待项目负责人确认并经独立 Contract Reviewer 审查  
+状态：OWNER-CONFIRMED，待独立 Contract Reviewer 审查
 关联设计：[Laya Runtime 集成设计](../docs/superpowers/specs/2026-09-23-laya-runtime-integration-design.md)
 
 ## 1. 范围与边界
@@ -77,16 +77,16 @@ Runtime 必须校验响应 schema、`requestId`、模型版本、模板版本、
 
 部署必须锁定 Laya 代码 revision、模型 checkpoint、权重摘要、Python 依赖和许可证信息。生产运行时不得从公网动态下载模型。上游 benchmark 不替代 HA Factory 自有中文和实际业务评测；上线前必须有负责人批准的离线评测集、指标、校准/拒答阈值和人工升级规则。
 
-## 9. 待负责人确认的 Open Issues
+## 9. 已确认的 Open Issues
 
-- OI-LAYA-001：允许的首个业务任务和禁止任务清单。
-- OI-LAYA-002：Runtime 到 Laya 的生产认证方案、密钥托管和轮换方式。
-- OI-LAYA-003：请求字段脱敏规则、文本/选择数量上限和日志摘要规则。
-- OI-LAYA-004：超时、重试、限流、排队上限及幂等策略。
-- OI-LAYA-005：模型 revision、checkpoint、权重摘要和依赖锁定清单。
-- OI-LAYA-006：离线评测集、准确率/校准/拒答阈值及上线门槛。
-- OI-LAYA-007：本 Contract 对 HD-002 的范围变更及启用后适用模块；M02 在确认前继续保持真实 Runtime 禁用。
+- OI-LAYA-001：首期仅允许内部决策辅助；禁止权限、Gate、工具、Git、CI、通知和其他外部副作用。
+- OI-LAYA-002：Runtime 到 Laya 使用内部 mTLS 或等效短时工作负载身份；密钥由受控环境托管并轮换，固定 API Key 不作为唯一生产身份。
+- OI-LAYA-003：只发送最小任务字段；原文、凭据和敏感字段脱敏后才可发送；单问题文本上限 4,000 字符，choice 选项最多 32 个；普通日志不保留原文。
+- OI-LAYA-004：连接超时 2 秒、总调用超时 5 秒；推理请求最多一次幂等重试；非幂等动作不重试；并发和排队超限直接失败关闭。
+- OI-LAYA-005：模型代码 revision、checkpoint、权重摘要、Python 依赖和许可证必须在部署清单中锁定；禁止公网动态下载。
+- OI-LAYA-006：上线前须完成中文业务离线评测，并由负责人确认准确率、校准、拒答和人工升级阈值；未达标保持禁用。
+- OI-LAYA-007：本 Contract 作为 HD-002 的后续范围提案；M02 真实 Runtime 继续禁用，只有专项 Gate PASS 后才允许在后续模块启用。
 
 ## 10. Gate 条件
 
-本草案不得作为开发输入。只有在 OI-LAYA-001 至 OI-LAYA-007 明确、API 与安全契约完成对齐、独立 Reviewer 记录 PASS 并将证据提交到 HEAD 后，才可进入 Runtime 实现阶段。
+本 Contract 仍不得单独作为开发输入。只有在 API 与安全契约完成对齐、独立 Reviewer 记录 PASS 并将证据提交到 HEAD 后，才可进入 Runtime 实现阶段。
