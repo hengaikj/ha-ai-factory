@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 import os
+from typing import cast
+from urllib.parse import urlsplit
 
 
 class RuntimeConfigurationError(RuntimeError):
@@ -13,6 +15,9 @@ class RuntimeSettings:
     """进程级设置；模型策略不从请求载荷读取。"""
 
     laya_base_url: str | None
+    laya_ca_cert: str | None = None
+    runtime_client_cert: str | None = None
+    runtime_client_key: str | None = None
     checkpoint: str = "multilingual"
     connect_timeout_seconds: float = 2.0
     attempt_timeout_seconds: float = 5.0
@@ -34,10 +39,33 @@ class RuntimeSettings:
             if not base_url:
                 base_url = None
 
-        return cls(laya_base_url=base_url)
+        return cls(
+            laya_base_url=base_url,
+            laya_ca_cert=os.getenv("HA_LAYA_CA_CERT"),
+            runtime_client_cert=os.getenv("HA_RUNTIME_CLIENT_CERT"),
+            runtime_client_key=os.getenv("HA_RUNTIME_CLIENT_KEY"),
+        )
 
     def require_laya_provider(self) -> str:
         """在触达模型前拒绝未配置的 provider。"""
         if not self.laya_base_url:
             raise RuntimeConfigurationError("Laya 推理服务未配置")
+        parsed = urlsplit(self.laya_base_url)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in ("", "/")
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise RuntimeConfigurationError("Laya 推理服务地址不符合内网 HTTPS 策略")
         return self.laya_base_url
+
+    def require_laya_mtls(self) -> tuple[str, str, str]:
+        """拒绝未配置的工作负载 mTLS 证书路径。"""
+        values = (self.laya_ca_cert, self.runtime_client_cert, self.runtime_client_key)
+        if not all(value and value.strip() for value in values):
+            raise RuntimeConfigurationError("Laya 工作负载 mTLS 配置不完整")
+        return cast(tuple[str, str, str], values)

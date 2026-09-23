@@ -2,6 +2,7 @@
 
 from enum import Enum
 from typing import Protocol
+from uuid import UUID
 
 from app.decision.models import DecisionRequest, DecisionResponse
 
@@ -82,6 +83,6 @@ class ProviderVersionMismatchError(DecisionProviderError):
 class DecisionModelProvider(Protocol):
     """向受控决策模型发送已批准请求的异步接口。"""
 
-    async def predict(self, request: DecisionRequest) -> DecisionResponse:
+    async def predict(self, request: DecisionRequest, request_id: UUID) -> DecisionResponse:
         """执行类型化推理并返回尚待业务人工复核的结果。"""
         ...

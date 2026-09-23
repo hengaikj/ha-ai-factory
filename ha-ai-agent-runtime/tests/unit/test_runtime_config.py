@@ -28,3 +28,17 @@ def test_runtime_uses_only_approved_checkpoint_and_normalizes_base_url(monkeypat
     assert settings.require_laya_provider() == "https://laya-inference.internal"
     assert settings.max_retries == 1
     assert settings.waiting_queue == 0
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "http://laya-inference.internal",
+        "https://user:secret@laya-inference.internal",
+        "https://laya-inference.internal/custom-path",
+        "https://laya-inference.internal?route=other",
+    ],
+)
+def test_runtime_rejects_unsafe_laya_base_url(base_url: str) -> None:
+    with pytest.raises(RuntimeConfigurationError):
+        RuntimeSettings(laya_base_url=base_url).require_laya_provider()

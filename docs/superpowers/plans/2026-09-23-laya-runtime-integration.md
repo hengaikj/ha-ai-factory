@@ -21,6 +21,7 @@
 - Laya 错误、超时、认证失败、输出校验失败或低可信结果都必须失败关闭并转人工处理，不得隐式切换模型或执行副作用。
 - 所有实现和验证须满足仓库 `SKILL.md`、`docs/lifecycle.md`、`docs/quality-gate.md` 及获批 Contract 的要求。
 - 当前 M01 身份会话和权限实现为内存骨架；生产调用前必须先具备符合 HD-001/HD-003 的真实认证、持久授权和服务身份能力，否则仅可保持离线测试。
+- Task 3 的 Java → Runtime API 与服务身份传递尚无独立获批接口 Contract。定义并由独立 Reviewer 批准该 Contract 前，禁止实现 Java Controller/Client 或开放 Runtime 业务路由；Task 4 的 Runtime → Laya 适配器可按已批准专项 Contract 独立完成。
 
 ## Review Focus
 
@@ -206,20 +207,20 @@ Expected: PASS；Commit: `功能: 增加Runtime受保护调用桥接`。
 
 **Interfaces:**
 - Consumes: Task 2 的 provider 协议与获批请求/响应模型。
-- Produces: `LayaHttpProvider(base_url, auth, timeout).predict(request)`；基础 URL 只能来自受保护的服务配置，不从请求体读取。
+- Produces: `LayaHttpProvider(settings).predict(request, request_id)`；基础 URL 和 mTLS 证书路径只能来自受保护的部署配置，不从请求体读取。注入 HTTPX client 仅用于离线测试。
 
-- [ ] **Step 1: 编写成功、错误和鉴权测试**
+- [x] **Step 1: 编写成功、错误和鉴权测试**
 
 使用 `httpx.MockTransport` 覆盖合法类型化答案、403、5xx、连接超时、错误 JSON、未知标签、错误模型版本及无效 usage；断言 Secret 不进入异常文本和日志。
 
 Run: `cd ha-ai-agent-runtime && pytest tests/unit/test_laya_http_provider.py -q`
 Expected: 初始失败，因为 Provider 尚未实现。
 
-- [ ] **Step 2: 实现服务认证注入**
+- [x] **Step 2: 实现服务认证注入**
 
-`service_auth.py` 提供获批机制的异步认证器协议。Provider 每个请求获取短时授权头或使用获批 mTLS 客户端；不写入静态明文令牌，不将认证值加入 URL 或日志。证书/Token 的具体取值仅按 Task 1 Contract 和 Secret 管理配置读取。
+`service_auth.py` 使用获批 mTLS 工作负载证书构造 TLS 上下文；不写入静态明文令牌，不将认证值加入 URL 或日志。证书路径仅从受控部署配置读取，证书文件由环境签发、托管和轮换。
 
-- [ ] **Step 3: 实现 HTTPX Provider**
+- [x] **Step 3: 实现 HTTPX Provider**
 
 使用单例异步 HTTPX client、Contract 配置的超时和连接池边界，向配置的 Laya endpoint 发出 POST。仅发送获批 schema 字段；严格验证 status、content type、响应 schema、允许标签和部署模型版本；把远端失败映射到 `DecisionProviderError` 子类。调用结构限定为：
 
@@ -233,7 +234,7 @@ response.raise_for_status()
 return DecisionResponse.from_laya_payload(response.json())
 ```
 
-- [ ] **Step 4: 运行 Provider 单元测试并提交**
+- [x] **Step 4: 运行 Provider 单元测试并提交**
 
 Run: `cd ha-ai-agent-runtime && pytest tests/unit/test_laya_http_provider.py -q`
 Expected: PASS；Commit: `功能: 增加Laya推理HTTP适配器`。
