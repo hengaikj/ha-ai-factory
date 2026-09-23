@@ -7,6 +7,8 @@
 审查角色：独立 Designer/Reviewer  
 最终决定：**不批准 Design Gate；需补充设计后重新审查。**
 
+此为首轮审查记录；D1、D2 后续已修订并经复审关闭。当前最终决定以 `evidence/design-review-DESIGN-HANDOFF-HA-F00-001-round-2.md` 为准。
+
 ## 检查项
 
 | 检查项 | 结果 | 说明 |

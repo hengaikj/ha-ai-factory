@@ -1,7 +1,781 @@
-openapi: 3.0.0
-
+openapi: 3.0.3
 info:
-  title: API Contract
-  version: 1.0.0
-
-paths: {}
+  title: HA AI Software Factory API Contract
+  version: 0.1.0-draft
+  description: >-
+    Contract draft for the approved MVP. This document is not approved for
+    implementation until Contract Gate passes and the decisions in
+    ../contract-decisions.md are resolved or explicitly deferred.
+x-contract-status: draft
+x-human-decisions-required:
+  - HD-001
+  - HD-002
+  - HD-003
+  - HD-004
+  - HD-005
+servers:
+  - url: https://{host}
+    description: Host and deployment topology are unresolved (OI-002).
+    variables:
+      host:
+        default: api.example.invalid
+        description: Placeholder only; replace after OI-002 decision.
+tags:
+  - name: Projects
+  - name: Tasks
+  - name: Deliverables
+  - name: Gates
+  - name: OpenIssues
+  - name: Resources
+  - name: Activity
+  - name: AgentRuntime
+paths:
+  /projects:
+    get:
+      tags: [Projects]
+      summary: List projects visible to the caller
+      description: Visibility and identity enforcement are pending HD-001/HD-003.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: query
+          in: query
+          schema: { type: string, maxLength: 128 }
+          description: Searches project name and description.
+      responses:
+        '200':
+          description: Project page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page, pageSize, total]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Project' }
+                  page: { type: integer, minimum: 1 }
+                  pageSize: { type: integer, minimum: 1 }
+                  total: { type: integer, minimum: 0 }
+        default: { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [Projects]
+      summary: Create a project
+      description: Requires project-creation permission; exact policy is pending HD-003.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectCreate' }
+      responses:
+        '201':
+          description: Created project.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        default: { $ref: '#/components/responses/Problem' }
+  /projects/{projectId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Projects]
+      summary: Get project details
+      responses:
+        '200':
+          description: Project details.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        default: { $ref: '#/components/responses/Problem' }
+    patch:
+      tags: [Projects]
+      summary: Update project metadata
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema: { $ref: '#/components/schemas/ProjectUpdate' }
+      responses:
+        '200':
+          description: Updated project.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        default: { $ref: '#/components/responses/Problem' }
+  /projects/{projectId}/tasks:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Tasks]
+      summary: List tasks in a project
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/TaskStatus' }
+      responses:
+        '200':
+          description: Task page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskPage' }
+        default: { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [Tasks]
+      summary: Create a task in a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskCreate' }
+      responses:
+        '201':
+          description: Created task.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        default: { $ref: '#/components/responses/Problem' }
+  /tasks/{taskId}:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    get:
+      tags: [Tasks]
+      summary: Get task details
+      responses:
+        '200':
+          description: Task.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        default: { $ref: '#/components/responses/Problem' }
+    patch:
+      tags: [Tasks]
+      summary: Update task assignment or status
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema: { $ref: '#/components/schemas/TaskUpdate' }
+      responses:
+        '200':
+          description: Updated task.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        default: { $ref: '#/components/responses/Problem' }
+  /projects/{projectId}/deliverables:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Deliverables]
+      summary: List project deliverables
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Deliverable page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeliverablePage' }
+        default: { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [Deliverables]
+      summary: Register a deliverable
+      description: Source-of-truth and storage semantics are pending HD-004.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeliverableCreate' }
+      responses:
+        '201':
+          description: Registered deliverable.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deliverable' }
+        default: { $ref: '#/components/responses/Problem' }
+  /deliverables/{deliverableId}/reviews:
+    parameters:
+      - name: deliverableId
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    post:
+      tags: [Deliverables]
+      summary: Record an independent deliverable review
+      description: Reviewer identity and role-separation rules are pending HD-003.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeliverableReviewCreate' }
+      responses:
+        '201':
+          description: Review recorded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeliverableReview' }
+        default: { $ref: '#/components/responses/Problem' }
+  /projects/{projectId}/gates:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Gates]
+      summary: List project gates
+      responses:
+        '200':
+          description: Gates and check summaries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Gate' }
+        default: { $ref: '#/components/responses/Problem' }
+  /gates/{gateId}:
+    parameters:
+      - name: gateId
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    get:
+      tags: [Gates]
+      summary: Get gate and checklist details
+      responses:
+        '200':
+          description: Gate details.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Gate' }
+        default: { $ref: '#/components/responses/Problem' }
+  /gates/{gateId}/checks/{checkId}/decision:
+    parameters:
+      - name: gateId
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+      - name: checkId
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    post:
+      tags: [Gates]
+      summary: Record a gate-check result
+      description: Reviewer must be independent; authorization enforcement is pending HD-003.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckDecisionCreate' }
+      responses:
+        '200':
+          description: Updated gate check.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GateCheck' }
+        default: { $ref: '#/components/responses/Problem' }
+  /gates/{gateId}/decision:
+    parameters:
+      - name: gateId
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    post:
+      tags: [Gates]
+      summary: Submit final gate decision
+      description: Only an independent human Reviewer can approve; agents and Orchestrator cannot self-approve.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GateDecisionCreate' }
+      responses:
+        '200':
+          description: Gate decision.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Gate' }
+        default: { $ref: '#/components/responses/Problem' }
+  /projects/{projectId}/stage-transitions:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      tags: [Projects]
+      summary: Advance a project after its required gate passes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetPhase]
+              properties:
+                targetPhase: { type: string, maxLength: 64 }
+      responses:
+        '200':
+          description: Updated project phase.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        default: { $ref: '#/components/responses/Problem' }
+  /projects/{projectId}/issues:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [OpenIssues]
+      summary: List project open issues
+      responses:
+        '200':
+          description: Issues.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/OpenIssue' }
+        default: { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [OpenIssues]
+      summary: Create an open issue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OpenIssueCreate' }
+      responses:
+        '201':
+          description: Created issue.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OpenIssue' }
+        default: { $ref: '#/components/responses/Problem' }
+  /issues/{issueId}/decisions:
+    parameters:
+      - name: issueId
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    post:
+      tags: [OpenIssues]
+      summary: Record a human decision for an issue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision, outcome]
+              properties:
+                decision: { type: string, minLength: 1, maxLength: 4000 }
+                outcome: { type: string, enum: [DECIDED, TRACKING] }
+      responses:
+        '200':
+          description: Updated issue.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OpenIssue' }
+        default: { $ref: '#/components/responses/Problem' }
+  /projects/{projectId}/resources:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Resources]
+      summary: List project templates and rules
+      parameters:
+        - name: phase
+          in: query
+          schema: { type: string, maxLength: 64 }
+        - name: kind
+          in: query
+          schema: { type: string, enum: [TEMPLATE, RULE] }
+      responses:
+        '200':
+          description: Resource index.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ProjectResource' }
+        default: { $ref: '#/components/responses/Problem' }
+  /projects/{projectId}/resources/{resourceId}/content:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: resourceId
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    get:
+      tags: [Resources]
+      summary: Read or download a template or rule
+      description: Authoritative source and retention policy remain subject to HD-004.
+      responses:
+        '200':
+          description: Resource content.
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+            text/plain:
+              schema: { type: string }
+        default: { $ref: '#/components/responses/Problem' }
+  /projects/{projectId}/activity:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Activity]
+      summary: List project audit activity
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: objectType
+          in: query
+          schema: { type: string, enum: [PROJECT, TASK, DELIVERABLE, GATE, OPEN_ISSUE, AGENT_RUN] }
+        - name: since
+          in: query
+          schema: { type: string, format: date-time }
+        - name: until
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Activity page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActivityPage' }
+        default: { $ref: '#/components/responses/Problem' }
+  /projects/{projectId}/agent-runtime/config-status:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [AgentRuntime]
+      summary: Get the execution-configuration status
+      description: Configuration fields and approver policy are pending HD-002.
+      responses:
+        '200':
+          description: Runtime configuration status; secrets are never returned.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RuntimeConfigStatus' }
+        default: { $ref: '#/components/responses/Problem' }
+  /projects/{projectId}/tasks/{taskId}/agent-runs:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: taskId
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    post:
+      tags: [AgentRuntime]
+      summary: Start an approved Agent Runtime task
+      description: >-
+        Fail closed. Return HUMAN_DECISION_REQUIRED when OI-003 is unresolved,
+        or when configuration is missing, unapproved, expired, or invalid.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [requestKey]
+              properties:
+                requestKey: { type: string, format: uuid }
+      responses:
+        '202':
+          description: Run accepted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentRun' }
+        '409':
+          description: Configuration is not approved or task is not executable.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        default: { $ref: '#/components/responses/Problem' }
+  /agent-runs/{runId}:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    get:
+      tags: [AgentRuntime]
+      summary: Get Agent Runtime execution status and result
+      responses:
+        '200':
+          description: Agent run.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentRun' }
+        default: { $ref: '#/components/responses/Problem' }
+components:
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+  responses:
+    Problem:
+      description: Error response.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    Project:
+      type: object
+      required: [id, name, currentPhase, gateStatus, openIssueCount, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string, maxLength: 128 }
+        description: { type: string, maxLength: 4000, nullable: true }
+        techStack: { type: object, additionalProperties: { type: string } }
+        ownerRef: { type: string, maxLength: 256, description: Identity reference format pending HD-001. }
+        currentPhase: { type: string, maxLength: 64 }
+        gateStatus: { type: string, enum: [PENDING, APPROVED, RETURNED, BLOCKED, HUMAN_DECISION_REQUIRED] }
+        openIssueCount: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ProjectCreate:
+      type: object
+      required: [name, ownerRef]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 128 }
+        description: { type: string, maxLength: 4000 }
+        techStack: { type: object, additionalProperties: { type: string } }
+        ownerRef: { type: string, maxLength: 256 }
+    ProjectUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 128 }
+        description: { type: string, maxLength: 4000, nullable: true }
+        techStack: { type: object, additionalProperties: { type: string } }
+        ownerRef: { type: string, maxLength: 256 }
+    Task:
+      type: object
+      required: [id, projectId, title, phase, status, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        projectId: { type: integer, format: int64 }
+        title: { type: string, maxLength: 256 }
+        description: { type: string, maxLength: 8000, nullable: true }
+        phase: { type: string, maxLength: 64 }
+        assigneeRef: { type: string, maxLength: 256, nullable: true }
+        assigneeRole: { type: string, maxLength: 64, nullable: true }
+        status: { $ref: '#/components/schemas/TaskStatus' }
+        deliverableIds:
+          type: array
+          items: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    TaskStatus:
+      type: string
+      enum: [NOT_STARTED, IN_PROGRESS, READY_FOR_REVIEW, COMPLETED, RETURNED, BLOCKED, HUMAN_DECISION_REQUIRED]
+    TaskCreate:
+      type: object
+      required: [title, phase]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 256 }
+        description: { type: string, maxLength: 8000 }
+        phase: { type: string, maxLength: 64 }
+        assigneeRef: { type: string, maxLength: 256 }
+        assigneeRole: { type: string, maxLength: 64 }
+        deliverableIds:
+          type: array
+          items: { type: integer, format: int64 }
+    TaskUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 256 }
+        description: { type: string, maxLength: 8000, nullable: true }
+        assigneeRef: { type: string, maxLength: 256, nullable: true }
+        assigneeRole: { type: string, maxLength: 64, nullable: true }
+        status: { $ref: '#/components/schemas/TaskStatus' }
+        deliverableIds:
+          type: array
+          items: { type: integer, format: int64 }
+    Deliverable:
+      type: object
+      required: [id, projectId, title, version, reviewStatus, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        projectId: { type: integer, format: int64 }
+        taskId: { type: integer, format: int64, nullable: true }
+        title: { type: string, maxLength: 256 }
+        phase: { type: string, maxLength: 64 }
+        version: { type: string, maxLength: 64 }
+        sourceRef: { type: string, maxLength: 2048, description: Source semantics pending HD-004. }
+        reviewStatus: { type: string, enum: [DRAFT, PENDING, APPROVED, RETURNED, CLARIFICATION_REQUIRED] }
+        createdAt: { type: string, format: date-time }
+    DeliverableCreate:
+      type: object
+      required: [title, phase, version, sourceRef]
+      properties:
+        taskId: { type: integer, format: int64 }
+        title: { type: string, minLength: 1, maxLength: 256 }
+        phase: { type: string, maxLength: 64 }
+        version: { type: string, maxLength: 64 }
+        sourceRef: { type: string, minLength: 1, maxLength: 2048 }
+    DeliverableReviewCreate:
+      type: object
+      required: [outcome, comment]
+      properties:
+        outcome: { type: string, enum: [APPROVED, RETURNED, CLARIFICATION_REQUIRED] }
+        comment: { type: string, minLength: 1, maxLength: 4000 }
+        evidenceRefs:
+          type: array
+          items: { type: string, maxLength: 2048 }
+    DeliverableReview:
+      allOf:
+        - $ref: '#/components/schemas/DeliverableReviewCreate'
+        - type: object
+          required: [id, reviewerRef, createdAt]
+          properties:
+            id: { type: integer, format: int64 }
+            reviewerRef: { type: string, maxLength: 256 }
+            createdAt: { type: string, format: date-time }
+    DeliverablePage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Deliverable' } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+    Gate:
+      type: object
+      required: [id, projectId, phase, status, checks]
+      properties:
+        id: { type: integer, format: int64 }
+        projectId: { type: integer, format: int64 }
+        phase: { type: string, maxLength: 64 }
+        status: { type: string, enum: [PENDING, APPROVED, RETURNED, BLOCKED, HUMAN_DECISION_REQUIRED] }
+        reviewerRef: { type: string, maxLength: 256, nullable: true }
+        decisionComment: { type: string, maxLength: 4000, nullable: true }
+        decidedAt: { type: string, format: date-time, nullable: true }
+        checks: { type: array, items: { $ref: '#/components/schemas/GateCheck' } }
+    GateCheck:
+      type: object
+      required: [id, code, title, status]
+      properties:
+        id: { type: integer, format: int64 }
+        code: { type: string, maxLength: 64 }
+        title: { type: string, maxLength: 256 }
+        status: { type: string, enum: [PENDING, PASSED, FAILED, CLARIFICATION_REQUIRED] }
+        comment: { type: string, maxLength: 4000, nullable: true }
+        evidenceRefs: { type: array, items: { type: string, maxLength: 2048 } }
+    CheckDecisionCreate:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [PASSED, FAILED, CLARIFICATION_REQUIRED] }
+        comment: { type: string, maxLength: 4000 }
+        evidenceRefs: { type: array, items: { type: string, maxLength: 2048 } }
+    GateDecisionCreate:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [APPROVED, RETURNED, HUMAN_DECISION_REQUIRED] }
+        comment: { type: string, maxLength: 4000 }
+    OpenIssue:
+      type: object
+      required: [id, projectId, title, impact, decisionRole, status, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        projectId: { type: integer, format: int64 }
+        code: { type: string, maxLength: 64, nullable: true }
+        title: { type: string, maxLength: 256 }
+        description: { type: string, maxLength: 8000 }
+        impact: { type: string, maxLength: 4000 }
+        decisionRole: { type: string, maxLength: 64 }
+        status: { type: string, enum: [OPEN, HUMAN_DECISION_REQUIRED, DECIDED, TRACKING, CLOSED] }
+        decision: { type: string, maxLength: 4000, nullable: true }
+        createdAt: { type: string, format: date-time }
+        decidedAt: { type: string, format: date-time, nullable: true }
+    OpenIssueCreate:
+      type: object
+      required: [title, description, impact, decisionRole]
+      properties:
+        code: { type: string, maxLength: 64 }
+        title: { type: string, minLength: 1, maxLength: 256 }
+        description: { type: string, minLength: 1, maxLength: 8000 }
+        impact: { type: string, minLength: 1, maxLength: 4000 }
+        decisionRole: { type: string, minLength: 1, maxLength: 64 }
+        status: { type: string, enum: [OPEN, HUMAN_DECISION_REQUIRED], default: OPEN }
+    ProjectResource:
+      type: object
+      required: [id, kind, title, phase, version, sourceRef]
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { type: string, enum: [TEMPLATE, RULE] }
+        title: { type: string, maxLength: 256 }
+        phase: { type: string, maxLength: 64 }
+        version: { type: string, maxLength: 64 }
+        sourceRef: { type: string, maxLength: 2048 }
+        sourceStatus: { type: string, enum: [CONFIRMED, PENDING_CONFIRMATION] }
+    ActivityPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, objectType, objectId, action, actorRef, occurredAt]
+            properties:
+              id: { type: integer, format: int64 }
+              objectType: { type: string, maxLength: 64 }
+              objectId: { type: integer, format: int64 }
+              action: { type: string, maxLength: 128 }
+              beforeState: { type: string, nullable: true }
+              afterState: { type: string, nullable: true }
+              actorRef: { type: string, maxLength: 256 }
+              comment: { type: string, maxLength: 4000, nullable: true }
+              evidenceRefs: { type: array, items: { type: string, maxLength: 2048 } }
+              occurredAt: { type: string, format: date-time }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+    RuntimeConfigStatus:
+      type: object
+      required: [status, executionAllowed]
+      properties:
+        status: { type: string, enum: [UNCONFIGURED, PENDING_APPROVAL, REJECTED, EXPIRED, APPROVED, VALIDATION_FAILED] }
+        executionAllowed: { type: boolean }
+        modelRef: { type: string, maxLength: 128, nullable: true }
+        toolRefs: { type: array, items: { type: string, maxLength: 128 } }
+        permissionSummary: { type: string, maxLength: 2000, nullable: true }
+        nextAction: { type: string, maxLength: 128 }
+    AgentRun:
+      type: object
+      required: [id, projectId, taskId, status, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        projectId: { type: integer, format: int64 }
+        taskId: { type: integer, format: int64 }
+        status: { type: string, enum: [QUEUED, RUNNING, SUCCEEDED, FAILED, CANCELLED] }
+        resultSummary: { type: string, maxLength: 8000, nullable: true }
+        errorCode: { type: string, maxLength: 128, nullable: true }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time, nullable: true }
+    Problem:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code: { type: string, enum: [VALIDATION_FAILED, NOT_FOUND, FORBIDDEN, CONFLICT, HUMAN_DECISION_REQUIRED, GATE_NOT_APPROVED, CONFIG_NOT_APPROVED] }
+        decisionRef: { type: string, nullable: true, description: Open Issue or decision record reference. }

@@ -1,7 +1,7 @@
 # HA AI Software Factory UX/UI 设计规格
 
 文档编号：UXUI-HA-F00-001  
-状态：UX/UI 阶段交付物，待 Design Gate Review  
+状态：Design Gate 已批准（2026-09-23）
 产品依据：`docs/product/prd.md`（产品负责人已确认，2026-09-23）  
 视觉方向：项目台账（方向 1）
 

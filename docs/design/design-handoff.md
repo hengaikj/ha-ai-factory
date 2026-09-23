@@ -1,7 +1,7 @@
 # HA AI Software Factory Design Handoff
 
 文档编号：DESIGN-HANDOFF-HA-F00-001
-状态：待 Design Gate Review
+状态：Design Gate 已批准（2026-09-23）
 关联 UX/UI：`docs/design/ux-ui-spec.md`
 视觉方向：项目台账（方向 1）
 
@@ -84,6 +84,6 @@
 - [x] API 数据绑定已登记且明确待 Contract 批准。
 - [x] AT-02 至 AT-07 已定义操作入口、步骤、状态和完成结果。
 - [x] Agent Runtime 未配置/待批准/拒绝/校验失败状态已定义拒绝提示和后续动作。
-- [ ] 独立 Designer/Reviewer 完成 Design Gate 审查。
+- [x] 独立 Designer/Reviewer 完成 Design Gate 审查。
 - [ ] OI-004 在权限设计中落地 Reviewer 独立性和角色兼任边界。
 - [ ] OI-003 在启用 Agent Runtime 执行前关闭。
