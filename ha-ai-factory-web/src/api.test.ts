@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { beginLogin, createProject, createProjectDeliverable, createProjectTask, getCurrentSession, getProjects, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, submitGate } from './api'
+import { beginLogin, createProject, createProjectDeliverable, createProjectTask, getCurrentSession, getProjects, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, submitGate } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -122,5 +122,12 @@ describe('contract API client', () => {
     await expect(getProjectGates(8)).resolves.toEqual([])
     await expect(submitGate({ gateId: 2, decisionOwnerRef: 'p1', taskIds: [3], deliverableIds: [], csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ status: 'READY_FOR_REVIEW' })
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/gates/2/submission', expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'c'.repeat(32) }) }))
+  })
+
+  it('shows runtime as unconfigured without exposing credentials', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ projectId: 8, status: 'UNCONFIGURED', modelRef: null }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(getRuntimeConfigStatus(8)).resolves.toMatchObject({ projectId: 8, status: 'UNCONFIGURED' })
+    expect(fetchMock).toHaveBeenCalledWith('/projects/8/agent-runtime/config-status', expect.objectContaining({ credentials: 'include' }))
   })
 })

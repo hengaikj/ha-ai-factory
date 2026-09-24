@@ -118,6 +118,15 @@ export interface ProjectGate {
   checks: GateCheck[]
 }
 
+export interface RuntimeConfigStatus {
+  id?: number | null
+  projectId: number
+  status: 'UNCONFIGURED' | 'PENDING_APPROVAL' | 'APPROVED' | 'EXPIRED'
+  modelRef?: string | null
+  approvedAt?: string | null
+  expiresAt?: string | null
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -271,3 +280,6 @@ export function submitGate(input: { gateId: number; decisionOwnerRef: string; ta
   const { gateId, csrfToken, ...body } = input
   return request(`/gates/${gateId}/submission`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
 }
+
+/** 读取Runtime授权状态；客户端永远不接收密钥。 */
+export function getRuntimeConfigStatus(projectId: number): Promise<RuntimeConfigStatus> { return request(`/projects/${projectId}/agent-runtime/config-status`) }
