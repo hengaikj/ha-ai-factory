@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { addProjectMember, beginLogin, createProject, createProjectDeliverable, createProjectTask, decideGate, decideProjectIssue, getCurrentSession, getProjects, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, logout, requestAgentRun, reviewProjectDeliverable, updateProject, updateProjectTask, submitGate } from './api'
+import { addProjectMember, beginLogin, createProject, createProjectDeliverable, createProjectTask, decideGate, decideProjectIssue, getAgentRun, getCurrentSession, getProjects, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, logout, requestAgentRun, reviewProjectDeliverable, updateProject, updateProjectTask, submitGate } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -180,5 +180,12 @@ describe('contract API client', () => {
     vi.stubGlobal('fetch', fetchMock)
     await expect(logout('c'.repeat(32))).resolves.toBeUndefined()
     expect(fetchMock).toHaveBeenCalledWith('/auth/logout', expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'c'.repeat(32) }) }))
+  })
+
+  it('keeps Runtime status lookup fail closed', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 404 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(getAgentRun('run/1')).rejects.toMatchObject({ status: 404 })
+    expect(fetchMock).toHaveBeenCalledWith('/agent-runs/run%2F1', expect.objectContaining({ credentials: 'include' }))
   })
 })

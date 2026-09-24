@@ -371,3 +371,6 @@ export function advanceProjectStage(projectId: number, targetPhase: string, csrf
 export function requestAgentRun(projectId: number, taskId: number, requestKey: string, csrfToken: string): Promise<never> {
   return request(`/projects/${projectId}/tasks/${taskId}/agent-runs`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify({ requestKey }) })
 }
+
+/** 查询Runtime执行状态；当前失败关闭接口固定返回404，不伪造执行记录。 */
+export function getAgentRun(runId: string): Promise<never> { return request(`/agent-runs/${encodeURIComponent(runId)}`) }
