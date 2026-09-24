@@ -17,6 +17,11 @@ import org.springframework.security.access.AccessDeniedException;
 /** 基于MyBatis mapper的MySQL持久化实现。 */
 @Repository
 public class MybatisProjectRepository implements ProjectRepository {
+    private static final Set<String> DELIVERABLE_REVIEW_OUTCOMES = Set.of("APPROVED", "RETURNED", "CLARIFICATION_REQUIRED");
+    private static final Set<String> ISSUE_CREATE_STATUSES = Set.of("OPEN", "HUMAN_DECISION_REQUIRED");
+    private static final Set<String> ISSUE_DECISION_STATUSES = Set.of("OPEN", "HUMAN_DECISION_REQUIRED", "DECIDED", "TRACKING", "CLOSED");
+    private static final Set<String> GATE_CHECK_STATUSES = Set.of("PASSED", "FAILED", "CLARIFICATION_REQUIRED");
+    private static final Set<String> GATE_DECISIONS = Set.of("APPROVED", "RETURNED", "HUMAN_DECISION_REQUIRED");
     private final PrincipalMapper principals;
     private final ProjectMapper projects;
     private final ProjectMembershipMapper memberships;
@@ -227,6 +232,7 @@ public class MybatisProjectRepository implements ProjectRepository {
     @Override
     @Transactional
     public DeliverableReviewRecord reviewDeliverable(String principalRef, long deliverableId, String outcome, String comment, String evidenceRefs) {
+        requireAllowed(outcome, DELIVERABLE_REVIEW_OUTCOMES, "交付物评审结论无效");
         DeliverableRow deliverable = deliverables.find(deliverableId); if (deliverable == null) throw new IllegalArgumentException("交付物不存在");
         if (memberships.countReviewer(deliverable.getProjectId(), principalRef) == 0) throw new AccessDeniedException("需要项目Reviewer角色");
         if (principalRef.equals(deliverable.getCreatedByRef())) throw new AccessDeniedException("交付物登记人不能担任独立评审人");
@@ -248,7 +254,9 @@ public class MybatisProjectRepository implements ProjectRepository {
     @Transactional
     public IssueRecord createIssue(String principalRef, long projectId, String code, String title, String description, String impact, String decisionRole, String status) {
         if (memberships.countTaskManager(projectId, principalRef) == 0) throw new AccessDeniedException("需要Owner、Project Admin或Orchestrator角色");
-        IssueRow row = new IssueRow(); row.setProjectId(projectId); row.setCode(code); row.setTitle(title); row.setDescription(description); row.setImpact(impact); row.setDecisionRole(decisionRole); row.setStatus(status == null ? "OPEN" : status); row.setCreatedByRef(principalRef); issues.insert(row); return issue(issues.find(row.getId()));
+        String effectiveStatus = status == null ? "OPEN" : status;
+        requireAllowed(effectiveStatus, ISSUE_CREATE_STATUSES, "待决事项初始状态无效");
+        IssueRow row = new IssueRow(); row.setProjectId(projectId); row.setCode(code); row.setTitle(title); row.setDescription(description); row.setImpact(impact); row.setDecisionRole(decisionRole); row.setStatus(effectiveStatus); row.setCreatedByRef(principalRef); issues.insert(row); return issue(issues.find(row.getId()));
     }
 
     /** 记录人工决策并推进事项状态。 */
@@ -257,6 +265,7 @@ public class MybatisProjectRepository implements ProjectRepository {
     public IssueRecord decideIssue(String principalRef, long issueId, String decision, String status) {
         IssueRow row = issues.find(issueId); if (row == null) throw new IllegalArgumentException("事项不存在");
         if (memberships.countActiveMember(row.getProjectId(), principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
+        requireAllowed(status, ISSUE_DECISION_STATUSES, "待决事项决策状态无效");
         row.setDecision(decision); row.setStatus(status); row.setDecidedByRef(principalRef); issues.decide(row); return issue(issues.find(issueId));
     }
 
@@ -291,6 +300,7 @@ public class MybatisProjectRepository implements ProjectRepository {
     }
     /** 记录独立Reviewer检查结论并执行冲突校验。 */
     @Override @Transactional public GateCheckRecord decideGateCheck(String principalRef, long gateId, long checkId, String status, String comment, String evidenceRefs) {
+        requireAllowed(status, GATE_CHECK_STATUSES, "Gate检查结论无效");
         GateRow gate = gates.find(gateId); if (gate == null || !"READY_FOR_REVIEW".equals(gate.getStatus())) throw new IllegalArgumentException("Gate未进入评审状态");
         if (memberships.countReviewer(gate.getProjectId(), principalRef) == 0 || gates.countConflict(gateId, principalRef) > 0) throw new AccessDeniedException("Reviewer独立性校验未通过");
         GateCheckRow row = gates.checks(gateId).stream().filter(c -> c.getId().equals(checkId)).findFirst().orElseThrow(() -> new IllegalArgumentException("检查项不存在"));
@@ -298,12 +308,18 @@ public class MybatisProjectRepository implements ProjectRepository {
     }
     /** 记录最终Gate决定，必须先完成全部检查项且通过独立性校验。 */
     @Override @Transactional public GateRecord decideGate(String principalRef, long gateId, String decision, String comment) {
+        requireAllowed(decision, GATE_DECISIONS, "Gate决定无效");
         GateRow gate = gates.find(gateId); if (gate == null || !"READY_FOR_REVIEW".equals(gate.getStatus())) throw new IllegalArgumentException("Gate未进入评审状态");
         if (memberships.countReviewer(gate.getProjectId(), principalRef) == 0 || gates.countConflict(gateId, principalRef) > 0) throw new AccessDeniedException("Reviewer独立性校验未通过");
         if (gates.pendingChecks(gateId) > 0) throw new IllegalArgumentException("仍有未完成的Gate检查项"); gates.updateStatus(gateId, decision); return gate(gates.find(gateId));
     }
     private GateRecord gate(GateRow row) { return new GateRecord(row.getId(), row.getProjectId(), row.getPhase(), row.getStatus(), row.getSubmittedByRef(), row.getDecisionOwnerRef(), gates.taskIds(row.getId()), gates.deliverableIds(row.getId()), row.getSubmittedAt(), gates.checks(row.getId()).stream().map(this::check).toList()); }
     private GateCheckRecord check(GateCheckRow row) { return new GateCheckRecord(row.getId(), row.getCode(), row.getTitle(), row.getStatus(), row.getReviewerRef(), row.getComment(), row.getEvidenceRefs()); }
+
+    /** 校验契约枚举，避免数据库枚举异常泄露为500并保持接口失败关闭。 */
+    private static void requireAllowed(String value, Set<String> allowed, String message) {
+        if (value == null || !allowed.contains(value)) throw new IllegalArgumentException(message);
+    }
 
     /** 读取Runtime授权状态；未配置时明确返回失败关闭状态。 */
     @Override public RuntimeConfigRecord getRuntimeConfig(String principalRef, long projectId) {
