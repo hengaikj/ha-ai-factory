@@ -5,6 +5,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,8 +40,10 @@ public class ProjectController {
     /** 将仓储层输入校验失败映射为稳定的契约错误，不泄露堆栈或内部 SQL 信息。 */
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Map<String, Object> invalidRequest(IllegalArgumentException ignored) {
-        return Map.of("type", "about:blank", "title", "请求参数无效", "status", HttpStatus.BAD_REQUEST.value(), "code", "VALIDATION_FAILED");
+    public ResponseEntity<Map<String, Object>> invalidRequest(IllegalArgumentException ignored) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .contentType(MediaType.valueOf("application/problem+json"))
+                .body(Map.of("type", "about:blank", "title", "请求参数无效", "status", HttpStatus.BAD_REQUEST.value(), "code", "VALIDATION_FAILED"));
     }
 
     /** 项目列表必须由服务端主体引用过滤，只显示有效成员关系。 */

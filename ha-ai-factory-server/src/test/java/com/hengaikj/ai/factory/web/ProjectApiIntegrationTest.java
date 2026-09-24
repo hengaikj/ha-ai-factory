@@ -118,7 +118,9 @@ class ProjectApiIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("COMPLETED"));
         mvc.perform(patch("/tasks/1").with(alice).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType("application/merge-patch+json").content("{\"status\":\"DONE\"}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
         mvc.perform(post("/projects/{projectId}/deliverables", projectId).with(alice).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"需求基线\",\"phase\":\"DISCOVERY\",\"version\":\"v1\",\"sourceRef\":\"docs/requirement/requirement-baseline.md\"}"))
