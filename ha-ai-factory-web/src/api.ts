@@ -233,6 +233,23 @@ export function getProjectMembers(projectId: number): Promise<ProjectMember[]> {
   return request(`/projects/${projectId}/members`)
 }
 
+/** 添加已完成企业认证的项目成员。 */
+export function addProjectMember(input: { projectId: number; issuer: string; subject: string; roles: string[]; csrfToken: string }): Promise<ProjectMember> {
+  const { projectId, csrfToken, ...body } = input
+  return request(`/projects/${projectId}/members`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
+}
+
+/** 替换项目成员角色集合。 */
+export function replaceProjectMemberRoles(input: { projectId: number; principalRef: string; roles: string[]; csrfToken: string }): Promise<ProjectMember> {
+  const { projectId, principalRef, csrfToken, ...body } = input
+  return request(`/projects/${projectId}/members/${principalRef}`, { method: 'PATCH', headers: { 'Content-Type': 'application/merge-patch+json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
+}
+
+/** 撤销项目成员资格。 */
+export function removeProjectMember(input: { projectId: number; principalRef: string; csrfToken: string }): Promise<void> {
+  return request(`/projects/${input.projectId}/members/${input.principalRef}`, { method: 'DELETE', headers: { 'X-CSRF-Token': input.csrfToken } })
+}
+
 /** 读取项目任务，状态过滤和分页均由服务端在项目成员权限范围内执行。 */
 export function getProjectTasks(projectId: number, page = 1, pageSize = 20, status?: string): Promise<TaskPage> {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
@@ -263,14 +280,20 @@ export function createProjectDeliverable(input: { projectId: number; title: stri
   })
 }
 
-/** 读取项目Open Issue。 */
-export function getProjectIssues(projectId: number): Promise<OpenIssue[]> { return request(`/projects/${projectId}/issues`) }
-
-/** 创建项目Open Issue。 */
+/** 记录Open Issue。 */
 export function createProjectIssue(input: { projectId: number; title: string; description: string; impact: string; decisionRole: string; code?: string; status?: string; csrfToken: string }): Promise<OpenIssue> {
   const { projectId, csrfToken, ...body } = input
   return request(`/projects/${projectId}/issues`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
 }
+
+/** 记录人工Issue决策。 */
+export function decideProjectIssue(input: { issueId: number; decision: string; outcome: string; csrfToken: string }): Promise<OpenIssue> {
+  const { issueId, csrfToken, ...body } = input
+  return request(`/issues/${issueId}/decisions`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
+}
+
+/** 读取项目Open Issue。 */
+export function getProjectIssues(projectId: number): Promise<OpenIssue[]> { return request(`/projects/${projectId}/issues`) }
 
 /** 读取模板与规则资源索引，客户端不请求文件内容。 */
 export function getProjectResources(projectId: number, phase?: string, kind?: string): Promise<ProjectResource[]> {
@@ -286,6 +309,18 @@ export function getProjectGates(projectId: number): Promise<ProjectGate[]> { ret
 export function submitGate(input: { gateId: number; decisionOwnerRef: string; taskIds: number[]; deliverableIds: number[]; csrfToken: string }): Promise<ProjectGate> {
   const { gateId, csrfToken, ...body } = input
   return request(`/gates/${gateId}/submission`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
+}
+
+/** 提交Gate检查结论。 */
+export function decideGateCheck(input: { gateId: number; checkId: number; status: string; comment?: string; evidenceRefs?: string[]; csrfToken: string }): Promise<GateCheck> {
+  const { gateId, checkId, csrfToken, ...body } = input
+  return request(`/gates/${gateId}/checks/${checkId}/decision`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
+}
+
+/** 提交Gate最终决定。 */
+export function decideGate(input: { gateId: number; decision: string; comment?: string; csrfToken: string }): Promise<ProjectGate> {
+  const { gateId, csrfToken, ...body } = input
+  return request(`/gates/${gateId}/decision`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
 }
 
 /** 读取Runtime授权状态；客户端永远不接收密钥。 */

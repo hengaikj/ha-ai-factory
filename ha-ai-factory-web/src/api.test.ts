@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { beginLogin, createProject, createProjectDeliverable, createProjectTask, getCurrentSession, getProjects, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, requestAgentRun, submitGate } from './api'
+import { addProjectMember, beginLogin, createProject, createProjectDeliverable, createProjectTask, decideGate, decideProjectIssue, getCurrentSession, getProjects, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, requestAgentRun, submitGate } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -143,5 +143,17 @@ describe('contract API client', () => {
     vi.stubGlobal('fetch', fetchMock)
     await expect(requestAgentRun(8, 3, '00000000-0000-4000-8000-000000000001', 'c'.repeat(32))).rejects.toMatchObject({ status: 409 })
     expect(fetchMock).toHaveBeenCalledWith('/projects/8/tasks/3/agent-runs', expect.objectContaining({ method: 'POST' }))
+  })
+
+  it('sends approved mutation routes with the session CSRF token', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ principalRef: 'p1', displayName: '李四', roles: ['ENGINEER'], joinedAt: '2026-01-01T00:00:00Z' }))
+      .mockResolvedValueOnce(Response.json({ id: 1, projectId: 8, phase: 'DISCOVERY', status: 'APPROVED', checks: [] }))
+      .mockResolvedValueOnce(Response.json({ id: 2, projectId: 8, title: 'Issue', status: 'DECIDED' }))
+    vi.stubGlobal('fetch', fetchMock)
+    await addProjectMember({ projectId: 8, issuer: 'https://idp.example', subject: 'bob', roles: ['ENGINEER'], csrfToken: 'c'.repeat(32) })
+    await decideGate({ gateId: 1, decision: 'APPROVED', comment: '通过', csrfToken: 'c'.repeat(32) })
+    await decideProjectIssue({ issueId: 2, decision: '采用', outcome: 'DECIDED', csrfToken: 'c'.repeat(32) })
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/projects/8/members', expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'c'.repeat(32) }) }))
   })
 })
