@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ApiError, addProjectMember, advanceProjectStage, beginLogin, createProject, createProjectDeliverable, createProjectIssue, createProjectTask, decideGate, decideGateCheck, decideProjectIssue, getCurrentSession, getProjects, getProjectMembers, getProjectTasks, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectResources, getRuntimeConfigStatus, reviewProjectDeliverable, type ActivityPage, type CurrentSession, type Deliverable, type Project, type ProjectGate, type ProjectMember, type ProjectResource, type ProjectTask, type OpenIssue, type RuntimeConfigStatus } from './api'
+import { ApiError, addProjectMember, advanceProjectStage, beginLogin, createProject, createProjectDeliverable, createProjectIssue, createProjectTask, decideGate, decideGateCheck, decideProjectIssue, getCurrentSession, getProjects, getProjectMembers, getProjectTasks, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectResources, getRuntimeConfigStatus, removeProjectMember, replaceProjectMemberRoles, reviewProjectDeliverable, type ActivityPage, type CurrentSession, type Deliverable, type Project, type ProjectGate, type ProjectMember, type ProjectResource, type ProjectTask, type OpenIssue, type RuntimeConfigStatus } from './api'
 
 type ViewState = 'loading' | 'unauthenticated' | 'ready' | 'error'
 const session = ref<CurrentSession | null>(null)
@@ -20,6 +20,7 @@ const members = ref<ProjectMember[]>([])
 const memberLoading = ref(false)
 const memberError = ref('')
 const memberIssuer = ref(''); const memberSubject = ref(''); const memberRoles = ref('ENGINEER'); const memberSaving = ref(false)
+const memberUpdating = ref(false)
 const createError = ref('')
 const taskProject = ref<Project | null>(null)
 const tasks = ref<ProjectTask[]>([])
@@ -162,6 +163,24 @@ async function submitMember() {
   try { const member = await addProjectMember({ projectId: memberProject.value.id, issuer: memberIssuer.value.trim(), subject: memberSubject.value.trim(), roles: memberRoles.value.split(',').map(v => v.trim()).filter(Boolean), csrfToken: session.value.csrfToken }); members.value = [member, ...members.value]; memberIssuer.value = ''; memberSubject.value = '' }
   catch (error) { memberError.value = error instanceof Error ? error.message : '成员添加失败，请稍后重试。' }
   finally { memberSaving.value = false }
+}
+
+async function updateMemberRoles(member: ProjectMember) {
+  if (!session.value || !memberProject.value || memberUpdating.value) return
+  const roles = prompt('请输入角色，逗号分隔', member.roles.join(','))?.split(',').map(v => v.trim()).filter(Boolean)
+  if (!roles?.length) return
+  memberUpdating.value = true; memberError.value = ''
+  try { const updated = await replaceProjectMemberRoles({ projectId: memberProject.value.id, principalRef: member.principalRef, roles, csrfToken: session.value.csrfToken }); members.value = members.value.map(v => v.principalRef === updated.principalRef ? updated : v) }
+  catch (error) { memberError.value = error instanceof Error ? error.message : '角色更新失败，请稍后重试。' }
+  finally { memberUpdating.value = false }
+}
+
+async function removeMember(member: ProjectMember) {
+  if (!session.value || !memberProject.value || memberUpdating.value || !confirm(`确认移除 ${member.displayName}？`)) return
+  memberUpdating.value = true; memberError.value = ''
+  try { await removeProjectMember({ projectId: memberProject.value.id, principalRef: member.principalRef, csrfToken: session.value.csrfToken }); members.value = members.value.filter(v => v.principalRef !== member.principalRef) }
+  catch (error) { memberError.value = error instanceof Error ? error.message : '成员移除失败，请稍后重试。' }
+  finally { memberUpdating.value = false }
 }
 
 /** 打开项目任务面板，任务列表和项目访问权限由服务端统一控制。 */
@@ -384,7 +403,7 @@ onMounted(loadProjects)
         <div class="dialog-heading"><div><h2 id="members-title">{{ memberProject.name }} · 项目成员</h2><p>成员角色由服务端项目权限控制。</p></div><button class="dialog-close" type="button" aria-label="关闭" @click="memberProject = null">×</button></div>
         <div v-if="memberLoading" class="state-panel" role="status">正在加载成员…</div>
         <p v-else-if="memberError" class="form-error" role="alert">{{ memberError }}</p>
-        <div v-else class="member-list"><form class="task-create-form" @submit.prevent="submitMember"><input v-model="memberIssuer" required placeholder="Issuer" aria-label="Issuer"><input v-model="memberSubject" required placeholder="Subject" aria-label="Subject"><input v-model="memberRoles" required placeholder="角色，逗号分隔" aria-label="角色"><button class="primary-button" type="submit" :disabled="memberSaving">{{ memberSaving ? '添加中…' : '添加成员' }}</button></form><div v-for="member in members" :key="member.principalRef" class="member-row"><span class="avatar">{{ member.displayName.slice(0, 1) }}</span><span><strong>{{ member.displayName }}</strong><small>{{ member.roles.join(' · ') }}</small></span></div><p v-if="!members.length" class="inline-empty">暂无可见成员</p></div>
+        <div v-else class="member-list"><form class="task-create-form" @submit.prevent="submitMember"><input v-model="memberIssuer" required placeholder="Issuer" aria-label="Issuer"><input v-model="memberSubject" required placeholder="Subject" aria-label="Subject"><input v-model="memberRoles" required placeholder="角色，逗号分隔" aria-label="角色"><button class="primary-button" type="submit" :disabled="memberSaving">{{ memberSaving ? '添加中…' : '添加成员' }}</button></form><div v-for="member in members" :key="member.principalRef" class="member-row"><span class="avatar">{{ member.displayName.slice(0, 1) }}</span><span><strong>{{ member.displayName }}</strong><small>{{ member.roles.join(' · ') }}</small></span><span class="task-create-form"><button class="secondary-button" type="button" :disabled="memberUpdating" @click="updateMemberRoles(member)">改角色</button><button class="secondary-button" type="button" :disabled="memberUpdating" @click="removeMember(member)">移除</button></span></div><p v-if="!members.length" class="inline-empty">暂无可见成员</p></div>
       </section>
     </div>
 
