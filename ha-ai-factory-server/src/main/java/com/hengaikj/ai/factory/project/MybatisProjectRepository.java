@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Arrays;
 import java.util.UUID;
@@ -293,9 +294,20 @@ public class MybatisProjectRepository implements ProjectRepository {
     @Override @Transactional public GateRecord submitGate(String principalRef, long gateId, String decisionOwnerRef, List<Long> taskIds, List<Long> deliverableIds) {
         GateRow row = gates.find(gateId); if (row == null) throw new IllegalArgumentException("Gate不存在");
         if (memberships.countTaskManager(row.getProjectId(), principalRef) == 0) throw new AccessDeniedException("需要项目编排角色");
+        if (!"PENDING".equals(row.getStatus()) && !"RETURNED".equals(row.getStatus())) throw new IllegalArgumentException("当前Gate不可重新提交");
         if (memberships.countActiveMember(row.getProjectId(), decisionOwnerRef) == 0) throw new IllegalArgumentException("决策责任人不是活动成员");
         if (taskIds.isEmpty() && deliverableIds.isEmpty()) throw new IllegalArgumentException("Gate至少需要一个任务或交付物");
+        if (new HashSet<>(taskIds).size() != taskIds.size() || new HashSet<>(deliverableIds).size() != deliverableIds.size()) throw new IllegalArgumentException("Gate范围不能包含重复对象");
+        taskIds.forEach(id -> {
+            TaskRow task = tasks.find(id);
+            if (task == null || task.getProjectId() != row.getProjectId()) throw new IllegalArgumentException("Gate任务不属于当前项目");
+        });
+        deliverableIds.forEach(id -> {
+            DeliverableRow deliverable = deliverables.find(id);
+            if (deliverable == null || deliverable.getProjectId() != row.getProjectId()) throw new IllegalArgumentException("Gate交付物不属于当前项目");
+        });
         row.setSubmittedByRef(principalRef); row.setDecisionOwnerRef(decisionOwnerRef); gates.submit(row);
+        gates.deleteTaskScopes(gateId); gates.deleteDeliverableScopes(gateId);
         taskIds.forEach(id -> gates.addTaskScope(row.getProjectId(), gateId, id)); deliverableIds.forEach(id -> gates.addDeliverableScope(row.getProjectId(), gateId, id));
         return gate(gates.find(gateId));
     }

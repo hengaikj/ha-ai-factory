@@ -28,6 +28,10 @@ public interface ProjectGateMapper {
     /** 写入任务和交付物范围。 */
     @Insert("INSERT INTO gate_scope_tasks(project_id,gate_id,task_id) VALUES(#{projectId},#{gateId},#{taskId})") int addTaskScope(@Param("projectId") long projectId, @Param("gateId") long gateId, @Param("taskId") long taskId);
     @Insert("INSERT INTO gate_scope_deliverables(project_id,gate_id,deliverable_id) VALUES(#{projectId},#{gateId},#{deliverableId})") int addDeliverableScope(@Param("projectId") long projectId, @Param("gateId") long gateId, @Param("deliverableId") long deliverableId);
+    /** 重新提交Gate前替换任务范围。 */
+    @Delete("DELETE FROM gate_scope_tasks WHERE gate_id=#{gateId}") int deleteTaskScopes(@Param("gateId") long gateId);
+    /** 重新提交Gate前替换交付物范围。 */
+    @Delete("DELETE FROM gate_scope_deliverables WHERE gate_id=#{gateId}") int deleteDeliverableScopes(@Param("gateId") long gateId);
     @Select("SELECT task_id FROM gate_scope_tasks WHERE gate_id=#{gateId}") List<Long> taskIds(@Param("gateId") long gateId);
     @Select("SELECT deliverable_id FROM gate_scope_deliverables WHERE gate_id=#{gateId}") List<Long> deliverableIds(@Param("gateId") long gateId);
     @Select("SELECT COUNT(*) FROM gate_checks WHERE gate_id=#{gateId} AND status='PENDING'") int pendingChecks(@Param("gateId") long gateId);
