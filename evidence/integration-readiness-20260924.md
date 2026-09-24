@@ -19,6 +19,8 @@
 
 `.github/workflows/ha-governance.yml` 已包含 Governance、Backend、Frontend 和 Agent Runtime 四个验证 job，并在 Pull Request 与目标分支 Push 时运行。
 
+本地直接启动 Spring Boot 必须显式提供 `MYSQL_URL`、`MYSQL_USERNAME` 和 `MYSQL_PASSWORD`。缺少这些配置时应用拒绝启动，不会降级到内存数据库；这是预期的失败关闭行为。
+
 ## 尚未满足的 Integration / Release 条件
 
 - 最新实现 HEAD 尚未完成独立 Reviewer 最终复审。
