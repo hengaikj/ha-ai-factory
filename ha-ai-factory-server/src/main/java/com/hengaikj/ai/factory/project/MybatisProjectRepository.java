@@ -277,7 +277,8 @@ public class MybatisProjectRepository implements ProjectRepository {
     @Transactional
     public IssueRecord decideIssue(String principalRef, long issueId, String decision, String status) {
         IssueRow row = issues.find(issueId); if (row == null) throw new IllegalArgumentException("事项不存在");
-        if (memberships.countActiveMember(row.getProjectId(), principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
+        if (memberships.countReviewer(row.getProjectId(), principalRef) == 0) throw new AccessDeniedException("需要项目Reviewer角色");
+        if (principalRef.equals(row.getCreatedByRef())) throw new AccessDeniedException("Issue创建人不能担任独立决策Reviewer");
         requireAllowed(status, ISSUE_DECISION_STATUSES, "待决事项决策状态无效");
         String beforeStatus = row.getStatus(); row.setDecision(decision); row.setStatus(status); row.setDecidedByRef(principalRef); issues.decide(row); audit(row.getProjectId(), "ISSUE", row.getId(), "ISSUE_DECIDED", "{\"status\":" + quote(beforeStatus) + "}", "{\"status\":" + quote(status) + "}", principalRef, decision, null); return issue(issues.find(issueId));
     }
