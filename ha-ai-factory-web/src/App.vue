@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ApiError, addProjectMember, beginLogin, createProject, createProjectDeliverable, createProjectIssue, createProjectTask, decideProjectIssue, getCurrentSession, getProjects, getProjectMembers, getProjectTasks, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectResources, getRuntimeConfigStatus, type ActivityPage, type CurrentSession, type Deliverable, type Project, type ProjectGate, type ProjectMember, type ProjectResource, type ProjectTask, type OpenIssue, type RuntimeConfigStatus } from './api'
+import { ApiError, addProjectMember, beginLogin, createProject, createProjectDeliverable, createProjectIssue, createProjectTask, decideGate, decideGateCheck, decideProjectIssue, getCurrentSession, getProjects, getProjectMembers, getProjectTasks, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectResources, getRuntimeConfigStatus, type ActivityPage, type CurrentSession, type Deliverable, type Project, type ProjectGate, type ProjectMember, type ProjectResource, type ProjectTask, type OpenIssue, type RuntimeConfigStatus } from './api'
 
 type ViewState = 'loading' | 'unauthenticated' | 'ready' | 'error'
 const session = ref<CurrentSession | null>(null)
@@ -41,6 +41,7 @@ const workspaceResources = ref<ProjectResource[]>([])
 const workspaceRuntime = ref<RuntimeConfigStatus | null>(null)
 const deliverableTitle = ref(''); const deliverablePhase = ref(''); const deliverableVersion = ref('v1.0'); const deliverableSourceRef = ref(''); const deliverableSaving = ref(false)
 const issueTitle = ref(''); const issueDescription = ref(''); const issueImpact = ref(''); const issueDecisionRole = ref('OWNER'); const issueSaving = ref(false); const issueDecision = ref(''); const issueOutcome = ref(''); const issueDeciding = ref(false)
+const gateWorking = ref(false)
 const projectName = ref('')
 const projectDescription = ref('')
 const loginError = new URLSearchParams(window.location.search).get('authError')
@@ -226,6 +227,22 @@ async function decideIssue(item: OpenIssue) {
   finally { issueDeciding.value = false }
 }
 
+async function decideCheck(gate: ProjectGate, checkId: number, status: string) {
+  if (!session.value || gateWorking.value) return
+  gateWorking.value = true; workspaceError.value = ''
+  try { await decideGateCheck({ gateId: gate.id, checkId, status, comment: status === 'APPROVED' ? 'Reviewer通过检查' : 'Reviewer退回检查', csrfToken: session.value.csrfToken }); const refreshed = await getProjectGates(gate.projectId); workspaceGates.value = refreshed }
+  catch (error) { workspaceError.value = error instanceof Error ? error.message : 'Gate检查决策失败，请稍后重试。' }
+  finally { gateWorking.value = false }
+}
+
+async function decideFinalGate(gate: ProjectGate, decision: string) {
+  if (!session.value || gateWorking.value) return
+  gateWorking.value = true; workspaceError.value = ''
+  try { await decideGate({ gateId: gate.id, decision, comment: decision === 'APPROVED' ? 'Reviewer批准Gate' : 'Reviewer退回Gate', csrfToken: session.value.csrfToken }); workspaceGates.value = await getProjectGates(gate.projectId) }
+  catch (error) { workspaceError.value = error instanceof Error ? error.message : 'Gate最终决策失败，请稍后重试。' }
+  finally { gateWorking.value = false }
+}
+
 onMounted(loadProjects)
 </script>
 
@@ -382,7 +399,7 @@ onMounted(loadProjects)
           <div v-if="workspaceTab === 'overview'" class="workspace-overview"><div><small>当前阶段</small><strong>{{ workspaceProject.currentPhase }}</strong></div><div><small>Gate</small><strong>{{ gateLabels[workspaceProject.gateStatus] }}</strong></div><div><small>Open Issues</small><strong>{{ workspaceProject.openIssueCount }}</strong></div></div>
           <div v-else-if="workspaceTab === 'deliverables'" class="workspace-list"><form class="task-create-form" @submit.prevent="submitDeliverable"><input v-model="deliverableTitle" required placeholder="交付物标题"><input v-model="deliverablePhase" required placeholder="阶段"><input v-model="deliverableVersion" required placeholder="版本"><input v-model="deliverableSourceRef" required placeholder="仓库引用"><button class="primary-button" type="submit" :disabled="deliverableSaving">{{ deliverableSaving ? '登记中…' : '登记交付物' }}</button></form><div v-for="item in workspaceDeliverables" :key="item.id" class="workspace-row"><span><strong>{{ item.title }}</strong><small>{{ item.phase }} · {{ item.version }} · {{ item.sourceRef }}</small></span><span class="phase-tag">{{ item.reviewStatus }}</span></div><p v-if="!workspaceDeliverables.length" class="inline-empty">暂无交付物登记</p></div>
           <div v-else-if="workspaceTab === 'issues'" class="workspace-list"><form class="task-create-form" @submit.prevent="submitIssue"><input v-model="issueTitle" required placeholder="Issue标题"><input v-model="issueDescription" required placeholder="Issue描述"><input v-model="issueImpact" required placeholder="影响"><input v-model="issueDecisionRole" required placeholder="决策角色"><button class="primary-button" type="submit" :disabled="issueSaving">{{ issueSaving ? '创建中…' : '创建Issue' }}</button></form><div v-for="item in workspaceIssues" :key="item.id" class="workspace-row"><span><strong>{{ item.code || `OI-${item.id}` }} · {{ item.title }}</strong><small>{{ item.impact }} · 决策角色：{{ item.decisionRole }}</small><span v-if="item.status !== 'RESOLVED'" class="task-create-form"><input v-model="issueDecision" placeholder="决策"><input v-model="issueOutcome" placeholder="结果"><button class="secondary-button" type="button" :disabled="issueDeciding" @click="decideIssue(item)">记录决策</button></span></span><span class="gate-tag gate-pending">{{ item.status }}</span></div><p v-if="!workspaceIssues.length" class="inline-empty">暂无 Open Issue</p></div>
-          <div v-else-if="workspaceTab === 'gates'" class="workspace-list"><div v-for="item in workspaceGates" :key="item.id" class="workspace-row"><span><strong>{{ item.phase }} Gate</strong><small>{{ item.taskIds.length }} 个任务 · {{ item.deliverableIds.length }} 个交付物 · {{ item.checks.length }} 个检查项</small></span><span class="gate-tag" :class="`gate-${item.status.toLowerCase()}`">{{ item.status }}</span></div><p v-if="!workspaceGates.length" class="inline-empty">暂无 Gate</p></div>
+          <div v-else-if="workspaceTab === 'gates'" class="workspace-list"><div v-for="item in workspaceGates" :key="item.id" class="workspace-row"><span><strong>{{ item.phase }} Gate</strong><small>{{ item.taskIds.length }} 个任务 · {{ item.deliverableIds.length }} 个交付物 · {{ item.checks.length }} 个检查项</small><span v-for="check in item.checks" :key="check.id" class="task-create-form"><small>{{ check.code }} · {{ check.title }} · {{ check.status }}</small><button class="secondary-button" type="button" :disabled="gateWorking" @click="decideCheck(item, check.id, 'APPROVED')">通过检查</button><button class="secondary-button" type="button" :disabled="gateWorking" @click="decideCheck(item, check.id, 'RETURNED')">退回检查</button></span><span class="task-create-form"><button class="primary-button" type="button" :disabled="gateWorking" @click="decideFinalGate(item, 'APPROVED')">批准Gate</button><button class="secondary-button" type="button" :disabled="gateWorking" @click="decideFinalGate(item, 'RETURNED')">退回Gate</button></span></span><span class="gate-tag" :class="`gate-${item.status.toLowerCase()}`">{{ item.status }}</span></div><p v-if="!workspaceGates.length" class="inline-empty">暂无 Gate</p></div>
           <div v-else-if="workspaceTab === 'activity'" class="workspace-list"><div v-for="item in workspaceActivity?.items" :key="item.id" class="workspace-row"><span><strong>{{ item.action }}</strong><small>{{ item.objectType }} #{{ item.objectId }} · {{ formatDate(item.occurredAt) }}</small></span></div><p v-if="!workspaceActivity?.items.length" class="inline-empty">暂无 Activity</p></div>
           <div v-else-if="workspaceTab === 'resources'" class="workspace-list"><div v-for="item in workspaceResources" :key="item.id" class="workspace-row"><span><strong>{{ item.title }}</strong><small>{{ item.kind }} · {{ item.phase }} · {{ item.sourceRef }}</small></span><span class="phase-tag">{{ item.version }}</span></div><p v-if="!workspaceResources.length" class="inline-empty">暂无资源索引</p></div>
           <div v-else class="workspace-overview runtime-overview"><div><small>授权状态</small><strong>{{ workspaceRuntime?.status || 'UNCONFIGURED' }}</strong></div><div><small>模型引用</small><strong>{{ workspaceRuntime?.modelRef || '未配置' }}</strong></div><p>真实模型、工具和外部副作用执行按 HD-002 保持失败关闭。</p></div>
