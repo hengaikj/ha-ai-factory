@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ApiError, beginLogin, createProject, createProjectTask, getCurrentSession, getProjects, getProjectMembers, getProjectTasks, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectResources, getRuntimeConfigStatus, type ActivityPage, type CurrentSession, type Deliverable, type Project, type ProjectGate, type ProjectMember, type ProjectResource, type ProjectTask, type OpenIssue, type RuntimeConfigStatus } from './api'
+import { ApiError, addProjectMember, beginLogin, createProject, createProjectDeliverable, createProjectIssue, createProjectTask, decideProjectIssue, getCurrentSession, getProjects, getProjectMembers, getProjectTasks, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectResources, getRuntimeConfigStatus, type ActivityPage, type CurrentSession, type Deliverable, type Project, type ProjectGate, type ProjectMember, type ProjectResource, type ProjectTask, type OpenIssue, type RuntimeConfigStatus } from './api'
 
 type ViewState = 'loading' | 'unauthenticated' | 'ready' | 'error'
 const session = ref<CurrentSession | null>(null)
@@ -19,6 +19,7 @@ const memberProject = ref<Project | null>(null)
 const members = ref<ProjectMember[]>([])
 const memberLoading = ref(false)
 const memberError = ref('')
+const memberIssuer = ref(''); const memberSubject = ref(''); const memberRoles = ref('ENGINEER'); const memberSaving = ref(false)
 const createError = ref('')
 const taskProject = ref<Project | null>(null)
 const tasks = ref<ProjectTask[]>([])
@@ -38,6 +39,8 @@ const workspaceGates = ref<ProjectGate[]>([])
 const workspaceActivity = ref<ActivityPage | null>(null)
 const workspaceResources = ref<ProjectResource[]>([])
 const workspaceRuntime = ref<RuntimeConfigStatus | null>(null)
+const deliverableTitle = ref(''); const deliverablePhase = ref(''); const deliverableVersion = ref('v1.0'); const deliverableSourceRef = ref(''); const deliverableSaving = ref(false)
+const issueTitle = ref(''); const issueDescription = ref(''); const issueImpact = ref(''); const issueDecisionRole = ref('OWNER'); const issueSaving = ref(false); const issueDecision = ref(''); const issueOutcome = ref(''); const issueDeciding = ref(false)
 const projectName = ref('')
 const projectDescription = ref('')
 const loginError = new URLSearchParams(window.location.search).get('authError')
@@ -149,6 +152,15 @@ async function openMembers(project: Project) {
   finally { memberLoading.value = false }
 }
 
+async function submitMember() {
+  if (!session.value || !memberProject.value || memberSaving.value) return
+  if (!memberIssuer.value.trim() || !memberSubject.value.trim()) { memberError.value = '请填写身份提供方和主体标识。'; return }
+  memberSaving.value = true; memberError.value = ''
+  try { const member = await addProjectMember({ projectId: memberProject.value.id, issuer: memberIssuer.value.trim(), subject: memberSubject.value.trim(), roles: memberRoles.value.split(',').map(v => v.trim()).filter(Boolean), csrfToken: session.value.csrfToken }); members.value = [member, ...members.value]; memberIssuer.value = ''; memberSubject.value = '' }
+  catch (error) { memberError.value = error instanceof Error ? error.message : '成员添加失败，请稍后重试。' }
+  finally { memberSaving.value = false }
+}
+
 /** 打开项目任务面板，任务列表和项目访问权限由服务端统一控制。 */
 async function openTasks(project: Project) {
   taskProject.value = project
@@ -186,6 +198,32 @@ async function openWorkspace(project: Project, tab: typeof workspaceTab.value = 
     else if (tab === 'runtime') workspaceRuntime.value = await getRuntimeConfigStatus(project.id)
   } catch (error) { workspaceError.value = error instanceof Error ? error.message : '工作区数据加载失败，请稍后重试。' }
   finally { workspaceLoading.value = false }
+}
+
+async function submitDeliverable() {
+  if (!session.value || !workspaceProject.value || deliverableSaving.value) return
+  if (!deliverableTitle.value.trim() || !deliverablePhase.value.trim() || !deliverableSourceRef.value.trim()) { workspaceError.value = '请填写交付物标题、阶段和仓库引用。'; return }
+  deliverableSaving.value = true; workspaceError.value = ''
+  try { const item = await createProjectDeliverable({ projectId: workspaceProject.value.id, title: deliverableTitle.value.trim(), phase: deliverablePhase.value.trim(), version: deliverableVersion.value.trim() || 'v1.0', sourceRef: deliverableSourceRef.value.trim(), csrfToken: session.value.csrfToken }); workspaceDeliverables.value = [item, ...workspaceDeliverables.value]; deliverableTitle.value = ''; deliverableSourceRef.value = '' }
+  catch (error) { workspaceError.value = error instanceof Error ? error.message : '交付物登记失败，请稍后重试。' }
+  finally { deliverableSaving.value = false }
+}
+
+async function submitIssue() {
+  if (!session.value || !workspaceProject.value || issueSaving.value) return
+  if (!issueTitle.value.trim() || !issueDescription.value.trim() || !issueImpact.value.trim()) { workspaceError.value = '请填写Issue标题、描述和影响。'; return }
+  issueSaving.value = true; workspaceError.value = ''
+  try { const item = await createProjectIssue({ projectId: workspaceProject.value.id, title: issueTitle.value.trim(), description: issueDescription.value.trim(), impact: issueImpact.value.trim(), decisionRole: issueDecisionRole.value, csrfToken: session.value.csrfToken }); workspaceIssues.value = [item, ...workspaceIssues.value]; issueTitle.value = ''; issueDescription.value = ''; issueImpact.value = '' }
+  catch (error) { workspaceError.value = error instanceof Error ? error.message : 'Issue创建失败，请稍后重试。' }
+  finally { issueSaving.value = false }
+}
+
+async function decideIssue(item: OpenIssue) {
+  if (!session.value || issueDeciding.value || !issueDecision.value.trim()) return
+  issueDeciding.value = true; workspaceError.value = ''
+  try { const updated = await decideProjectIssue({ issueId: item.id, decision: issueDecision.value.trim(), outcome: issueOutcome.value.trim(), csrfToken: session.value.csrfToken }); workspaceIssues.value = workspaceIssues.value.map(v => v.id === updated.id ? updated : v); issueDecision.value = ''; issueOutcome.value = '' }
+  catch (error) { workspaceError.value = error instanceof Error ? error.message : 'Issue决策失败，请稍后重试。' }
+  finally { issueDeciding.value = false }
 }
 
 onMounted(loadProjects)
@@ -309,7 +347,7 @@ onMounted(loadProjects)
         <div class="dialog-heading"><div><h2 id="members-title">{{ memberProject.name }} · 项目成员</h2><p>成员角色由服务端项目权限控制。</p></div><button class="dialog-close" type="button" aria-label="关闭" @click="memberProject = null">×</button></div>
         <div v-if="memberLoading" class="state-panel" role="status">正在加载成员…</div>
         <p v-else-if="memberError" class="form-error" role="alert">{{ memberError }}</p>
-        <div v-else class="member-list"><div v-for="member in members" :key="member.principalRef" class="member-row"><span class="avatar">{{ member.displayName.slice(0, 1) }}</span><span><strong>{{ member.displayName }}</strong><small>{{ member.roles.join(' · ') }}</small></span></div><p v-if="!members.length" class="inline-empty">暂无可见成员</p></div>
+        <div v-else class="member-list"><form class="task-create-form" @submit.prevent="submitMember"><input v-model="memberIssuer" required placeholder="Issuer" aria-label="Issuer"><input v-model="memberSubject" required placeholder="Subject" aria-label="Subject"><input v-model="memberRoles" required placeholder="角色，逗号分隔" aria-label="角色"><button class="primary-button" type="submit" :disabled="memberSaving">{{ memberSaving ? '添加中…' : '添加成员' }}</button></form><div v-for="member in members" :key="member.principalRef" class="member-row"><span class="avatar">{{ member.displayName.slice(0, 1) }}</span><span><strong>{{ member.displayName }}</strong><small>{{ member.roles.join(' · ') }}</small></span></div><p v-if="!members.length" class="inline-empty">暂无可见成员</p></div>
       </section>
     </div>
 
@@ -342,8 +380,8 @@ onMounted(loadProjects)
         <p v-else-if="workspaceError" class="form-error" role="alert">{{ workspaceError }}</p>
         <div v-else class="workspace-body">
           <div v-if="workspaceTab === 'overview'" class="workspace-overview"><div><small>当前阶段</small><strong>{{ workspaceProject.currentPhase }}</strong></div><div><small>Gate</small><strong>{{ gateLabels[workspaceProject.gateStatus] }}</strong></div><div><small>Open Issues</small><strong>{{ workspaceProject.openIssueCount }}</strong></div></div>
-          <div v-else-if="workspaceTab === 'deliverables'" class="workspace-list"><div v-for="item in workspaceDeliverables" :key="item.id" class="workspace-row"><span><strong>{{ item.title }}</strong><small>{{ item.phase }} · {{ item.version }} · {{ item.sourceRef }}</small></span><span class="phase-tag">{{ item.reviewStatus }}</span></div><p v-if="!workspaceDeliverables.length" class="inline-empty">暂无交付物登记</p></div>
-          <div v-else-if="workspaceTab === 'issues'" class="workspace-list"><div v-for="item in workspaceIssues" :key="item.id" class="workspace-row"><span><strong>{{ item.code || `OI-${item.id}` }} · {{ item.title }}</strong><small>{{ item.impact }} · 决策角色：{{ item.decisionRole }}</small></span><span class="gate-tag gate-pending">{{ item.status }}</span></div><p v-if="!workspaceIssues.length" class="inline-empty">暂无 Open Issue</p></div>
+          <div v-else-if="workspaceTab === 'deliverables'" class="workspace-list"><form class="task-create-form" @submit.prevent="submitDeliverable"><input v-model="deliverableTitle" required placeholder="交付物标题"><input v-model="deliverablePhase" required placeholder="阶段"><input v-model="deliverableVersion" required placeholder="版本"><input v-model="deliverableSourceRef" required placeholder="仓库引用"><button class="primary-button" type="submit" :disabled="deliverableSaving">{{ deliverableSaving ? '登记中…' : '登记交付物' }}</button></form><div v-for="item in workspaceDeliverables" :key="item.id" class="workspace-row"><span><strong>{{ item.title }}</strong><small>{{ item.phase }} · {{ item.version }} · {{ item.sourceRef }}</small></span><span class="phase-tag">{{ item.reviewStatus }}</span></div><p v-if="!workspaceDeliverables.length" class="inline-empty">暂无交付物登记</p></div>
+          <div v-else-if="workspaceTab === 'issues'" class="workspace-list"><form class="task-create-form" @submit.prevent="submitIssue"><input v-model="issueTitle" required placeholder="Issue标题"><input v-model="issueDescription" required placeholder="Issue描述"><input v-model="issueImpact" required placeholder="影响"><input v-model="issueDecisionRole" required placeholder="决策角色"><button class="primary-button" type="submit" :disabled="issueSaving">{{ issueSaving ? '创建中…' : '创建Issue' }}</button></form><div v-for="item in workspaceIssues" :key="item.id" class="workspace-row"><span><strong>{{ item.code || `OI-${item.id}` }} · {{ item.title }}</strong><small>{{ item.impact }} · 决策角色：{{ item.decisionRole }}</small><span v-if="item.status !== 'RESOLVED'" class="task-create-form"><input v-model="issueDecision" placeholder="决策"><input v-model="issueOutcome" placeholder="结果"><button class="secondary-button" type="button" :disabled="issueDeciding" @click="decideIssue(item)">记录决策</button></span></span><span class="gate-tag gate-pending">{{ item.status }}</span></div><p v-if="!workspaceIssues.length" class="inline-empty">暂无 Open Issue</p></div>
           <div v-else-if="workspaceTab === 'gates'" class="workspace-list"><div v-for="item in workspaceGates" :key="item.id" class="workspace-row"><span><strong>{{ item.phase }} Gate</strong><small>{{ item.taskIds.length }} 个任务 · {{ item.deliverableIds.length }} 个交付物 · {{ item.checks.length }} 个检查项</small></span><span class="gate-tag" :class="`gate-${item.status.toLowerCase()}`">{{ item.status }}</span></div><p v-if="!workspaceGates.length" class="inline-empty">暂无 Gate</p></div>
           <div v-else-if="workspaceTab === 'activity'" class="workspace-list"><div v-for="item in workspaceActivity?.items" :key="item.id" class="workspace-row"><span><strong>{{ item.action }}</strong><small>{{ item.objectType }} #{{ item.objectId }} · {{ formatDate(item.occurredAt) }}</small></span></div><p v-if="!workspaceActivity?.items.length" class="inline-empty">暂无 Activity</p></div>
           <div v-else-if="workspaceTab === 'resources'" class="workspace-list"><div v-for="item in workspaceResources" :key="item.id" class="workspace-row"><span><strong>{{ item.title }}</strong><small>{{ item.kind }} · {{ item.phase }} · {{ item.sourceRef }}</small></span><span class="phase-tag">{{ item.version }}</span></div><p v-if="!workspaceResources.length" class="inline-empty">暂无资源索引</p></div>
