@@ -105,6 +105,15 @@ class ProjectApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(1)))
                 .andExpect(jsonPath("$.items[0].phase").value("DISCOVERY"));
+        mvc.perform(post("/projects/{projectId}/deliverables", projectId).with(alice).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"需求基线\",\"phase\":\"DISCOVERY\",\"version\":\"v1\",\"sourceRef\":\"docs/requirement/requirement-baseline.md\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.reviewStatus").value("DRAFT"));
+        mvc.perform(get("/projects/{projectId}/deliverables", projectId).with(alice))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].sourceRef").value("docs/requirement/requirement-baseline.md"));
         String ownerRef = mvc.perform(get("/projects").with(alice))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(1)))

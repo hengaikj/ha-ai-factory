@@ -21,14 +21,16 @@ public class MybatisProjectRepository implements ProjectRepository {
     private final ProjectMapper projects;
     private final ProjectMembershipMapper memberships;
     private final ProjectTaskMapper tasks;
+    private final ProjectDeliverableMapper deliverables;
     private final ObjectMapper json;
 
     public MybatisProjectRepository(PrincipalMapper principals, ProjectMapper projects,
-                                    ProjectMembershipMapper memberships, ProjectTaskMapper tasks, ObjectMapper json) {
+                                    ProjectMembershipMapper memberships, ProjectTaskMapper tasks, ProjectDeliverableMapper deliverables, ObjectMapper json) {
         this.principals = principals;
         this.projects = projects;
         this.memberships = memberships;
         this.tasks = tasks;
+        this.deliverables = deliverables;
         this.json = json;
     }
 
@@ -174,6 +176,36 @@ public class MybatisProjectRepository implements ProjectRepository {
         row.setTitle(title == null ? row.getTitle() : title); row.setDescription(description == null ? row.getDescription() : description); row.setAssigneeRef(assigneeRef == null ? row.getAssigneeRef() : assigneeRef); row.setAssigneeRole(assigneeRole == null ? row.getAssigneeRole() : assigneeRole); row.setStatus(status == null ? row.getStatus() : status); tasks.update(row);
         return task(tasks.find(taskId));
     }
+
+    /** 查询项目交付物登记记录，文件内容仍由仓库引用负责。 */
+    @Override
+    public DeliverablePage listDeliverables(String principalRef, long projectId, int page, int pageSize) {
+        if (memberships.countActiveMember(projectId, principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
+        int offset = Math.multiplyExact(page - 1, pageSize);
+        return new DeliverablePage(deliverables.list(projectId, pageSize, offset).stream().map(this::deliverable).toList(), page, pageSize, deliverables.count(projectId));
+    }
+
+    /** 登记仓库引用型交付物，仅项目任务管理角色可登记。 */
+    @Override
+    @Transactional
+    public DeliverableRecord createDeliverable(String principalRef, long projectId, Long taskId, String title, String phase, String version, String sourceRef) {
+        if (memberships.countTaskManager(projectId, principalRef) == 0) throw new AccessDeniedException("需要Owner、Project Admin或Orchestrator角色");
+        DeliverableRow row = new DeliverableRow(); row.setProjectId(projectId); row.setTaskId(taskId); row.setTitle(title); row.setPhase(phase); row.setVersion(version); row.setSourceRef(sourceRef); row.setCreatedByRef(principalRef); deliverables.insert(row);
+        return deliverable(deliverables.find(row.getId()));
+    }
+
+    /** 记录独立评审，评审人必须具备Reviewer角色且不能是交付物登记人。 */
+    @Override
+    @Transactional
+    public DeliverableReviewRecord reviewDeliverable(String principalRef, long deliverableId, String outcome, String comment, String evidenceRefs) {
+        DeliverableRow deliverable = deliverables.find(deliverableId); if (deliverable == null) throw new IllegalArgumentException("交付物不存在");
+        if (memberships.countReviewer(deliverable.getProjectId(), principalRef) == 0) throw new AccessDeniedException("需要项目Reviewer角色");
+        if (principalRef.equals(deliverable.getCreatedByRef())) throw new AccessDeniedException("交付物登记人不能担任独立评审人");
+        ReviewRow review = new ReviewRow(); review.setDeliverableId(deliverableId); review.setReviewerRef(principalRef); review.setOutcome(outcome); review.setComment(comment); review.setEvidenceRefs(evidenceRefs); deliverables.insertReview(review);
+        deliverables.updateStatus(deliverableId, outcome); return new DeliverableReviewRecord(review.getId(), principalRef, outcome, comment, evidenceRefs, java.time.Instant.now());
+    }
+
+    private DeliverableRecord deliverable(DeliverableRow row) { return new DeliverableRecord(row.getId(), row.getProjectId(), row.getTaskId(), row.getTitle(), row.getPhase(), row.getVersion(), row.getSourceRef(), row.getReviewStatus(), row.getCreatedAt()); }
 
     private TaskRecord task(TaskRow row) { return new TaskRecord(row.getId(), row.getProjectId(), row.getTitle(), row.getDescription(), row.getPhase(), row.getAssigneeRef(), row.getAssigneeRole(), row.getStatus(), row.getCreatedAt(), row.getUpdatedAt()); }
 

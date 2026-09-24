@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { beginLogin, createProject, createProjectTask, getCurrentSession, getProjects, getProjectMembers, getProjectTasks } from './api'
+import { beginLogin, createProject, createProjectDeliverable, createProjectTask, getCurrentSession, getProjects, getProjectDeliverables, getProjectMembers, getProjectTasks } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -90,5 +90,16 @@ describe('contract API client', () => {
     await expect(createProjectTask({ projectId: 8, title: '建立基础骨架', phase: 'DISCOVERY', csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ id: 3 })
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/projects/8/tasks?page=1&pageSize=20', expect.objectContaining({ credentials: 'include' }))
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/projects/8/tasks', expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'c'.repeat(32) }) }))
+  })
+
+  it('loads and registers repository referenced deliverables', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ items: [], page: 1, pageSize: 20, total: 0 }))
+      .mockResolvedValueOnce(Response.json({ id: 4, projectId: 8, title: '基线', phase: 'DISCOVERY', version: 'v1', sourceRef: 'docs/baseline.md', reviewStatus: 'DRAFT' }, { status: 201 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(getProjectDeliverables(8)).resolves.toMatchObject({ total: 0 })
+    await expect(createProjectDeliverable({ projectId: 8, title: '基线', phase: 'DISCOVERY', version: 'v1', sourceRef: 'docs/baseline.md', csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ id: 4 })
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/projects/8/deliverables?page=1&pageSize=20', expect.objectContaining({ credentials: 'include' }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/projects/8/deliverables', expect.objectContaining({ method: 'POST', body: expect.stringContaining('docs/baseline.md') }))
   })
 })

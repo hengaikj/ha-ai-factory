@@ -51,6 +51,25 @@ export interface TaskPage {
   total: number
 }
 
+export interface Deliverable {
+  id: number
+  projectId: number
+  taskId?: number | null
+  title: string
+  phase: string
+  version: string
+  sourceRef: string
+  reviewStatus: 'DRAFT' | 'PENDING' | 'APPROVED' | 'RETURNED' | 'CLARIFICATION_REQUIRED'
+  createdAt: string
+}
+
+export interface DeliverablePage {
+  items: Deliverable[]
+  page: number
+  pageSize: number
+  total: number
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -164,5 +183,18 @@ export function createProjectTask(input: { projectId: number; title: string; des
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
     body: JSON.stringify(body),
+  })
+}
+
+/** 读取项目登记的仓库引用型交付物。 */
+export function getProjectDeliverables(projectId: number, page = 1, pageSize = 20): Promise<DeliverablePage> {
+  return request(`/projects/${projectId}/deliverables?page=${page}&pageSize=${pageSize}`)
+}
+
+/** 登记交付物引用，不上传文件内容。 */
+export function createProjectDeliverable(input: { projectId: number; title: string; phase: string; version: string; sourceRef: string; taskId?: number; csrfToken: string }): Promise<Deliverable> {
+  const { projectId, csrfToken, ...body } = input
+  return request(`/projects/${projectId}/deliverables`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body),
   })
 }

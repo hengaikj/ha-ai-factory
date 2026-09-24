@@ -39,6 +39,10 @@ public interface ProjectMembershipMapper {
     @Select("SELECT COUNT(*) FROM project_member_roles r JOIN project_members m ON m.project_id=r.project_id AND m.principal_ref=r.principal_ref WHERE r.project_id=#{projectId} AND r.principal_ref=#{principalRef} AND m.membership_status='ACTIVE' AND r.role_code IN ('OWNER','PROJECT_ADMIN','ORCHESTRATOR')")
     int countTaskManager(@Param("projectId") long projectId, @Param("principalRef") String principalRef);
 
+    /** 校验独立交付物评审角色。 */
+    @Select("SELECT COUNT(*) FROM project_member_roles r JOIN project_members m ON m.project_id=r.project_id AND m.principal_ref=r.principal_ref WHERE r.project_id=#{projectId} AND r.principal_ref=#{principalRef} AND m.membership_status='ACTIVE' AND r.role_code='REVIEWER'")
+    int countReviewer(@Param("projectId") long projectId, @Param("principalRef") String principalRef);
+
     /** 检查目标主体是否为已登记且可用的身份。 */
     @Select("SELECT COUNT(*) FROM principals WHERE principal_ref=#{principalRef} AND is_active=TRUE")
     int countActivePrincipal(@Param("principalRef") String principalRef);

@@ -116,6 +116,31 @@ public class ProjectController {
         return TaskItem.from(repository.updateTask(p.principalRef(), taskId, body.title(), body.description(), body.assigneeRef() == null ? null : body.assigneeRef().toString(), body.assigneeRole(), body.status()));
     }
 
+    /** 查询项目登记的仓库引用型交付物。 */
+    @GetMapping("/projects/{projectId}/deliverables")
+    public DeliverablePage deliverables(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId,
+                                        @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
+        validatePage(page, pageSize);
+        var result = repository.listDeliverables(principal(user).principalRef(), projectId, page, pageSize);
+        return new DeliverablePage(result.items().stream().map(DeliverableItem::from).toList(), page, pageSize, result.total());
+    }
+
+    /** 登记交付物仓库引用，不接收公共上传地址或文件内容。 */
+    @PostMapping("/projects/{projectId}/deliverables")
+    @ResponseStatus(HttpStatus.CREATED)
+    public DeliverableItem createDeliverable(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId, @Valid @RequestBody DeliverableCreate body) {
+        var p = principal(user);
+        return DeliverableItem.from(repository.createDeliverable(p.principalRef(), projectId, body.taskId(), body.title().trim(), body.phase(), body.version(), body.sourceRef().trim()));
+    }
+
+    /** 记录独立交付物评审，评审人身份由服务端会话推导。 */
+    @PostMapping("/deliverables/{deliverableId}/reviews")
+    @ResponseStatus(HttpStatus.CREATED)
+    public DeliverableReviewItem reviewDeliverable(@AuthenticationPrincipal OidcUser user, @PathVariable long deliverableId, @Valid @RequestBody DeliverableReviewCreate body) {
+        var p = principal(user);
+        return DeliverableReviewItem.from(repository.reviewDeliverable(p.principalRef(), deliverableId, body.outcome(), body.comment(), body.evidenceRefs() == null ? "[]" : body.evidenceRefs().toString()));
+    }
+
     /** 从Spring已验证的OIDC会话派生主体，不采信请求载荷中的操作者字段。 */
     private ProjectRepository.PrincipalRecord principal(OidcUser user) {
         if (user == null || user.getIssuer() == null || user.getSubject() == null || user.getSubject().isBlank()) {
@@ -156,6 +181,18 @@ public class ProjectController {
     public record TaskItem(long id, long projectId, String title, String description, String phase, UUID assigneeRef,
                            String assigneeRole, String status, Instant createdAt, Instant updatedAt) {
         static TaskItem from(ProjectRepository.TaskRecord value) { return new TaskItem(value.id(), value.projectId(), value.title(), value.description(), value.phase(), value.assigneeRef() == null ? null : UUID.fromString(value.assigneeRef()), value.assigneeRole(), value.status(), value.createdAt(), value.updatedAt()); }
+    }
+
+    public record DeliverableCreate(Long taskId, @NotBlank @Size(max = 256) String title, @NotBlank @Size(max = 64) String phase,
+                                    @NotBlank @Size(max = 64) String version, @NotBlank @Size(max = 2048) String sourceRef) {}
+    public record DeliverableReviewCreate(@NotBlank @Size(max = 40) String outcome, @NotBlank @Size(max = 4000) String comment,
+                                          java.util.List<@Size(max = 2048) String> evidenceRefs) {}
+    public record DeliverablePage(java.util.List<DeliverableItem> items, int page, int pageSize, long total) {}
+    public record DeliverableItem(long id, long projectId, Long taskId, String title, String phase, String version, String sourceRef, String reviewStatus, Instant createdAt) {
+        static DeliverableItem from(ProjectRepository.DeliverableRecord v) { return new DeliverableItem(v.id(), v.projectId(), v.taskId(), v.title(), v.phase(), v.version(), v.sourceRef(), v.reviewStatus(), v.createdAt()); }
+    }
+    public record DeliverableReviewItem(long id, UUID reviewerRef, String outcome, String comment, String evidenceRefs, Instant createdAt) {
+        static DeliverableReviewItem from(ProjectRepository.DeliverableReviewRecord v) { return new DeliverableReviewItem(v.id(), UUID.fromString(v.reviewerRef()), v.outcome(), v.comment(), v.evidenceRefs(), v.createdAt()); }
     }
 
     public record ProjectItem(long id, String name, String description, Map<String, String> techStack,
