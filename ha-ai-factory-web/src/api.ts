@@ -31,6 +31,26 @@ export interface ProjectMember {
   joinedAt: string
 }
 
+export interface ProjectTask {
+  id: number
+  projectId: number
+  title: string
+  description?: string | null
+  phase: string
+  assigneeRef?: string | null
+  assigneeRole?: string | null
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TaskPage {
+  items: ProjectTask[]
+  page: number
+  pageSize: number
+  total: number
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -128,4 +148,21 @@ export function createProject(input: { name: string; description?: string; csrfT
 /** 读取当前项目的活动成员和角色，仅后端授权主体可见。 */
 export function getProjectMembers(projectId: number): Promise<ProjectMember[]> {
   return request(`/projects/${projectId}/members`)
+}
+
+/** 读取项目任务，状态过滤和分页均由服务端在项目成员权限范围内执行。 */
+export function getProjectTasks(projectId: number, page = 1, pageSize = 20, status?: string): Promise<TaskPage> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+  if (status) params.set('status', status)
+  return request(`/projects/${projectId}/tasks?${params.toString()}`)
+}
+
+/** 使用会话CSRF Token创建项目任务，任务管理角色由后端校验。 */
+export function createProjectTask(input: { projectId: number; title: string; description?: string; phase: string; assigneeRef?: string; assigneeRole?: string; csrfToken: string }): Promise<ProjectTask> {
+  const { projectId, csrfToken, ...body } = input
+  return request(`/projects/${projectId}/tasks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+    body: JSON.stringify(body),
+  })
 }

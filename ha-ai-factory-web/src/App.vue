@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ApiError, beginLogin, createProject, getCurrentSession, getProjects, getProjectMembers, type CurrentSession, type Project, type ProjectMember } from './api'
+import { ApiError, beginLogin, createProject, createProjectTask, getCurrentSession, getProjects, getProjectMembers, getProjectTasks, type CurrentSession, type Project, type ProjectMember, type ProjectTask } from './api'
 
 type ViewState = 'loading' | 'unauthenticated' | 'ready' | 'error'
 const session = ref<CurrentSession | null>(null)
@@ -20,6 +20,14 @@ const members = ref<ProjectMember[]>([])
 const memberLoading = ref(false)
 const memberError = ref('')
 const createError = ref('')
+const taskProject = ref<Project | null>(null)
+const tasks = ref<ProjectTask[]>([])
+const taskLoading = ref(false)
+const taskError = ref('')
+const taskTitle = ref('')
+const taskPhase = ref('DISCOVERY')
+const taskDescription = ref('')
+const taskCreating = ref(false)
 const projectName = ref('')
 const projectDescription = ref('')
 const loginError = new URLSearchParams(window.location.search).get('authError')
@@ -131,6 +139,31 @@ async function openMembers(project: Project) {
   finally { memberLoading.value = false }
 }
 
+/** 打开项目任务面板，任务列表和项目访问权限由服务端统一控制。 */
+async function openTasks(project: Project) {
+  taskProject.value = project
+  tasks.value = []
+  taskError.value = ''
+  taskLoading.value = true
+  try { tasks.value = (await getProjectTasks(project.id)).items }
+  catch (error) { taskError.value = error instanceof Error ? error.message : '任务加载失败，请稍后重试。' }
+  finally { taskLoading.value = false }
+}
+
+/** 创建任务后刷新当前项目列表，默认状态由后端置为未开始。 */
+async function submitTask() {
+  if (!session.value || !taskProject.value || taskCreating.value) return
+  if (!taskTitle.value.trim() || !taskPhase.value.trim()) { taskError.value = '请填写任务标题和阶段。'; return }
+  taskCreating.value = true
+  taskError.value = ''
+  try {
+    const task = await createProjectTask({ projectId: taskProject.value.id, title: taskTitle.value.trim(), phase: taskPhase.value.trim(), ...(taskDescription.value.trim() ? { description: taskDescription.value.trim() } : {}), csrfToken: session.value.csrfToken })
+    tasks.value = [task, ...tasks.value]
+    taskTitle.value = ''; taskDescription.value = ''
+  } catch (error) { taskError.value = error instanceof Error ? error.message : '任务创建失败，请稍后重试。' }
+  finally { taskCreating.value = false }
+}
+
 onMounted(loadProjects)
 </script>
 
@@ -144,7 +177,7 @@ onMounted(loadProjects)
       <div class="workspace-label">工作台</div>
       <nav class="navigation">
         <button class="nav-item selected" type="button"><span class="nav-icon" aria-hidden="true">▦</span><span>项目</span></button>
-        <button class="nav-item" type="button" disabled><span class="nav-icon" aria-hidden="true">⌘</span><span>任务</span></button>
+        <button class="nav-item" type="button" :disabled="viewState !== 'ready'" @click="projects[0] && openTasks(projects[0])"><span class="nav-icon" aria-hidden="true">⌘</span><span>任务</span></button>
         <button class="nav-item" type="button" disabled><span class="nav-icon" aria-hidden="true">▤</span><span>交付物</span></button>
         <button class="nav-item" type="button" disabled><span class="nav-icon" aria-hidden="true">✓</span><span>Gate</span></button>
         <button class="nav-item" type="button" disabled><span class="nav-icon" aria-hidden="true">◇</span><span>Open Issues</span></button>
@@ -204,7 +237,7 @@ onMounted(loadProjects)
               <thead><tr><th>项目</th><th>负责人</th><th>当前阶段</th><th>Gate 状态</th><th>Open Issues</th><th>更新时间</th></tr></thead>
               <tbody>
                 <tr v-for="project in projects" :key="project.id">
-                  <td><button class="project-link" type="button" @click="openMembers(project)">{{ project.name }}</button><small>{{ project.description || '暂无项目描述' }}</small><span class="project-id">项目 #{{ project.id }}</span></td>
+                  <td><button class="project-link" type="button" @click="openMembers(project)">{{ project.name }}</button><small>{{ project.description || '暂无项目描述' }}</small><span class="project-id">项目 #{{ project.id }} · <button class="inline-link" type="button" @click="openTasks(project)">查看任务</button></span></td>
                   <td><span class="owner-chip">{{ project.ownerRef === session?.principalRef ? `我（${session.displayName}）` : `成员 #${project.ownerRef.slice(0, 8)}` }}</span></td>
                   <td><span class="phase-tag">{{ project.currentPhase }}</span></td>
                   <td><span class="gate-tag" :class="`gate-${project.gateStatus.toLowerCase()}`">{{ gateLabels[project.gateStatus] }}</span></td>
@@ -253,6 +286,25 @@ onMounted(loadProjects)
         <div v-if="memberLoading" class="state-panel" role="status">正在加载成员…</div>
         <p v-else-if="memberError" class="form-error" role="alert">{{ memberError }}</p>
         <div v-else class="member-list"><div v-for="member in members" :key="member.principalRef" class="member-row"><span class="avatar">{{ member.displayName.slice(0, 1) }}</span><span><strong>{{ member.displayName }}</strong><small>{{ member.roles.join(' · ') }}</small></span></div><p v-if="!members.length" class="inline-empty">暂无可见成员</p></div>
+      </section>
+    </div>
+
+    <div v-if="taskProject" class="dialog-backdrop" @click.self="taskProject = null">
+      <section class="create-dialog task-dialog" role="dialog" aria-modal="true" aria-labelledby="tasks-title">
+        <div class="dialog-heading"><div><h2 id="tasks-title">{{ taskProject.name }} · 任务</h2><p>任务创建需要 Owner、Project Admin 或 Orchestrator 角色。</p></div><button class="dialog-close" type="button" aria-label="关闭" @click="taskProject = null">×</button></div>
+        <div v-if="taskLoading" class="state-panel" role="status">正在加载任务…</div>
+        <p v-else-if="taskError && !session" class="form-error" role="alert">{{ taskError }}</p>
+        <div v-else class="task-content">
+          <form class="task-create-form" @submit.prevent="submitTask">
+            <input v-model="taskTitle" maxlength="200" required placeholder="任务标题" aria-label="任务标题">
+            <input v-model="taskPhase" maxlength="64" required placeholder="阶段" aria-label="任务阶段">
+            <input v-model="taskDescription" maxlength="2000" placeholder="任务说明（选填）" aria-label="任务说明">
+            <button class="primary-button" type="submit" :disabled="taskCreating">{{ taskCreating ? '创建中…' : '新建任务' }}</button>
+          </form>
+          <p v-if="taskError" class="form-error" role="alert">{{ taskError }}</p>
+          <div v-if="tasks.length" class="task-list"><div v-for="task in tasks" :key="task.id" class="task-row"><div><strong>{{ task.title }}</strong><small>{{ task.phase }} · {{ task.status === 'NOT_STARTED' ? '未开始' : task.status }}</small></div><span class="phase-tag">#{{ task.id }}</span></div></div>
+          <p v-else-if="!taskLoading" class="inline-empty">暂无任务，可在上方创建。</p>
+        </div>
       </section>
     </div>
   </div>

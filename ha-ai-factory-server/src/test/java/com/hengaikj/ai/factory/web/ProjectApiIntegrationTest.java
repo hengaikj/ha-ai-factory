@@ -95,6 +95,16 @@ class ProjectApiIntegrationTest {
         var createdProject = new com.fasterxml.jackson.databind.ObjectMapper().readTree(created);
         long projectId = createdProject.path("id").asLong();
         String principalRef = createdProject.path("ownerRef").asText();
+        mvc.perform(post("/projects/{projectId}/tasks", projectId).with(alice).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"建立骨架\",\"phase\":\"DISCOVERY\",\"description\":\"任务说明\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value("建立骨架"))
+                .andExpect(jsonPath("$.status").value("NOT_STARTED"));
+        mvc.perform(get("/projects/{projectId}/tasks", projectId).with(alice))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].phase").value("DISCOVERY"));
         String ownerRef = mvc.perform(get("/projects").with(alice))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(1)))

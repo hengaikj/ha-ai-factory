@@ -20,13 +20,15 @@ public class MybatisProjectRepository implements ProjectRepository {
     private final PrincipalMapper principals;
     private final ProjectMapper projects;
     private final ProjectMembershipMapper memberships;
+    private final ProjectTaskMapper tasks;
     private final ObjectMapper json;
 
     public MybatisProjectRepository(PrincipalMapper principals, ProjectMapper projects,
-                                    ProjectMembershipMapper memberships, ObjectMapper json) {
+                                    ProjectMembershipMapper memberships, ProjectTaskMapper tasks, ObjectMapper json) {
         this.principals = principals;
         this.projects = projects;
         this.memberships = memberships;
+        this.tasks = tasks;
         this.json = json;
     }
 
@@ -137,6 +139,43 @@ public class MybatisProjectRepository implements ProjectRepository {
     }
 
     private Set<String> roles(String raw) { return raw == null || raw.isBlank() ? Set.of() : new LinkedHashSet<>(Arrays.asList(raw.split(","))); }
+
+    /** 查询项目任务，读取权限限定在活动项目成员。 */
+    @Override
+    public TaskPage listTasks(String principalRef, long projectId, String status, int page, int pageSize) {
+        if (memberships.countActiveMember(projectId, principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
+        int offset = Math.multiplyExact(page - 1, pageSize);
+        return new TaskPage(tasks.list(projectId, status, pageSize, offset).stream().map(this::task).toList(), page, pageSize, tasks.count(projectId, status));
+    }
+
+    /** 创建任务，仅项目Owner、管理员或Orchestrator可执行。 */
+    @Override
+    @Transactional
+    public TaskRecord createTask(String principalRef, long projectId, String title, String description, String phase, String assigneeRef, String assigneeRole) {
+        if (memberships.countTaskManager(projectId, principalRef) == 0) throw new AccessDeniedException("需要Owner、Project Admin或Orchestrator角色");
+        TaskRow row = new TaskRow(); row.setProjectId(projectId); row.setTitle(title); row.setDescription(description); row.setPhase(phase); row.setAssigneeRef(assigneeRef); row.setAssigneeRole(assigneeRole); row.setCreatedByRef(principalRef); tasks.insert(row);
+        return task(tasks.find(row.getId()));
+    }
+
+    /** 读取任务详情并校验项目成员边界。 */
+    @Override
+    public TaskRecord getTask(String principalRef, long taskId) {
+        TaskRow row = tasks.find(taskId); if (row == null) throw new IllegalArgumentException("任务不存在");
+        if (memberships.countActiveMember(row.getProjectId(), principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
+        return task(row);
+    }
+
+    /** 更新任务快照，仅编排角色可以改变任务分配和状态。 */
+    @Override
+    @Transactional
+    public TaskRecord updateTask(String principalRef, long taskId, String title, String description, String assigneeRef, String assigneeRole, String status) {
+        TaskRow row = tasks.find(taskId); if (row == null) throw new IllegalArgumentException("任务不存在");
+        if (memberships.countTaskManager(row.getProjectId(), principalRef) == 0) throw new AccessDeniedException("需要Owner、Project Admin或Orchestrator角色");
+        row.setTitle(title == null ? row.getTitle() : title); row.setDescription(description == null ? row.getDescription() : description); row.setAssigneeRef(assigneeRef == null ? row.getAssigneeRef() : assigneeRef); row.setAssigneeRole(assigneeRole == null ? row.getAssigneeRole() : assigneeRole); row.setStatus(status == null ? row.getStatus() : status); tasks.update(row);
+        return task(tasks.find(taskId));
+    }
+
+    private TaskRecord task(TaskRow row) { return new TaskRecord(row.getId(), row.getProjectId(), row.getTitle(), row.getDescription(), row.getPhase(), row.getAssigneeRef(), row.getAssigneeRole(), row.getStatus(), row.getCreatedAt(), row.getUpdatedAt()); }
 
     /** 将技术栈映射序列化为MySQL JSON字段内容。 */
     private String serialize(Map<String, String> value) {

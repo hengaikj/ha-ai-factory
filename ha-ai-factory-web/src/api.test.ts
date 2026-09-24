@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { beginLogin, createProject, getCurrentSession, getProjects, getProjectMembers } from './api'
+import { beginLogin, createProject, createProjectTask, getCurrentSession, getProjects, getProjectMembers, getProjectTasks } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -78,5 +78,17 @@ describe('contract API client', () => {
     vi.stubGlobal('fetch', fetchMock)
     await expect(getProjectMembers(8)).resolves.toMatchObject([{ displayName: '张三', roles: ['OWNER'] }])
     expect(fetchMock).toHaveBeenCalledWith('/projects/8/members', expect.objectContaining({ credentials: 'include' }))
+  })
+
+  it('loads and creates project tasks through scoped CSRF protected routes', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ items: [], page: 1, pageSize: 20, total: 0 }))
+      .mockResolvedValueOnce(Response.json({ id: 3, projectId: 8, title: '建立基础骨架', phase: 'DISCOVERY', status: 'NOT_STARTED' }, { status: 201 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getProjectTasks(8)).resolves.toMatchObject({ total: 0 })
+    await expect(createProjectTask({ projectId: 8, title: '建立基础骨架', phase: 'DISCOVERY', csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ id: 3 })
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/projects/8/tasks?page=1&pageSize=20', expect.objectContaining({ credentials: 'include' }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/projects/8/tasks', expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'c'.repeat(32) }) }))
   })
 })

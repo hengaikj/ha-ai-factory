@@ -12,3 +12,16 @@
 .member-list { display: grid; gap: 10px; max-height: 360px; overflow: auto; }
 .member-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e8e1d8; border-radius: 10px; }
 .member-row small { display: block; color: #71808a; margin-top: 3px; }
+.inline-link { border: 0; padding: 0; background: transparent; color: #7168df; font: inherit; cursor: pointer; }
+.inline-link:hover { text-decoration: underline; }
+.task-dialog { width: min(680px, 100%); }
+.task-create-form { display: grid; grid-template-columns: 1.4fr .8fr 1.2fr auto; gap: 8px; margin-bottom: 14px; }
+.task-create-form input { min-width: 0; padding: 9px 10px; border: 1px solid #e2e6ed; border-radius: 6px; outline: 0; color: #374258; font-size: 11px; }
+.task-create-form input:focus { border-color: #aaa5f2; box-shadow: 0 0 0 3px #6258e212; }
+.task-create-form .primary-button { height: 35px; white-space: nowrap; cursor: pointer; font-size: 10px; }
+.task-list { display: grid; gap: 8px; max-height: 320px; overflow: auto; }
+.task-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 12px; border: 1px solid #e8eaf1; border-radius: 8px; }
+.task-row strong, .task-row small { display: block; }
+.task-row strong { color: #303b52; font-size: 11px; }
+.task-row small { margin-top: 4px; color: #929cad; font-size: 9px; }
+@media(max-width:720px){.task-create-form{grid-template-columns:1fr 1fr}.task-create-form input:nth-child(3){grid-column:1 / -1}.task-create-form .primary-button{grid-column:1 / -1;justify-content:center}}

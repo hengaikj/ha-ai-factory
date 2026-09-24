@@ -87,6 +87,35 @@ public class ProjectController {
         repository.removeMember(principal(user).principalRef(), projectId, principalRef.toString());
     }
 
+    /** 按项目读取任务，状态过滤和分页由服务端执行。 */
+    @GetMapping("/projects/{projectId}/tasks")
+    public TaskPage tasks(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId,
+                          @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize,
+                          @RequestParam(required = false) String status) {
+        validatePage(page, pageSize);
+        var result = repository.listTasks(principal(user).principalRef(), projectId, status, page, pageSize);
+        return new TaskPage(result.items().stream().map(TaskItem::from).toList(), page, pageSize, result.total());
+    }
+
+    /** 创建项目任务并由服务端绑定创建人。 */
+    @PostMapping("/projects/{projectId}/tasks")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TaskItem createTask(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId, @Valid @RequestBody TaskCreate body) {
+        var p = principal(user);
+        return TaskItem.from(repository.createTask(p.principalRef(), projectId, body.title().trim(), body.description(), body.phase(), body.assigneeRef() == null ? null : body.assigneeRef().toString(), body.assigneeRole()));
+    }
+
+    /** 查询单个任务详情。 */
+    @GetMapping("/tasks/{taskId}")
+    public TaskItem task(@AuthenticationPrincipal OidcUser user, @PathVariable long taskId) { return TaskItem.from(repository.getTask(principal(user).principalRef(), taskId)); }
+
+    /** 更新任务分配或状态，空字段按当前快照处理。 */
+    @PatchMapping(value = "/tasks/{taskId}", consumes = "application/merge-patch+json")
+    public TaskItem updateTask(@AuthenticationPrincipal OidcUser user, @PathVariable long taskId, @Valid @RequestBody TaskUpdate body) {
+        var p = principal(user);
+        return TaskItem.from(repository.updateTask(p.principalRef(), taskId, body.title(), body.description(), body.assigneeRef() == null ? null : body.assigneeRef().toString(), body.assigneeRole(), body.status()));
+    }
+
     /** 从Spring已验证的OIDC会话派生主体，不采信请求载荷中的操作者字段。 */
     private ProjectRepository.PrincipalRecord principal(OidcUser user) {
         if (user == null || user.getIssuer() == null || user.getSubject() == null || user.getSubject().isBlank()) {
@@ -117,6 +146,16 @@ public class ProjectController {
         static MemberItem from(ProjectRepository.MemberRecord value) {
             return new MemberItem(UUID.fromString(value.principalRef()), value.displayName(), value.roles(), value.joinedAt());
         }
+    }
+
+    public record TaskCreate(@NotBlank @Size(max = 256) String title, @NotBlank @Size(max = 64) String phase,
+                             @Size(max = 8000) String description, UUID assigneeRef, @Size(max = 64) String assigneeRole) {}
+    public record TaskUpdate(@Size(max = 256) String title, @Size(max = 8000) String description, UUID assigneeRef,
+                             @Size(max = 64) String assigneeRole, @Size(max = 40) String status) {}
+    public record TaskPage(java.util.List<TaskItem> items, int page, int pageSize, long total) {}
+    public record TaskItem(long id, long projectId, String title, String description, String phase, UUID assigneeRef,
+                           String assigneeRole, String status, Instant createdAt, Instant updatedAt) {
+        static TaskItem from(ProjectRepository.TaskRecord value) { return new TaskItem(value.id(), value.projectId(), value.title(), value.description(), value.phase(), value.assigneeRef() == null ? null : UUID.fromString(value.assigneeRef()), value.assigneeRole(), value.status(), value.createdAt(), value.updatedAt()); }
     }
 
     public record ProjectItem(long id, String name, String description, Map<String, String> techStack,
