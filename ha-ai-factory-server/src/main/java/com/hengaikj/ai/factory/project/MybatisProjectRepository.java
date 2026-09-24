@@ -256,6 +256,10 @@ public class MybatisProjectRepository implements ProjectRepository {
         DeliverableRow deliverable = deliverables.find(deliverableId); if (deliverable == null) throw new IllegalArgumentException("交付物不存在");
         if (memberships.countReviewer(deliverable.getProjectId(), principalRef) == 0) throw new AccessDeniedException("需要项目Reviewer角色");
         if (principalRef.equals(deliverable.getCreatedByRef())) throw new AccessDeniedException("交付物登记人不能担任独立评审人");
+        if (deliverable.getTaskId() != null) {
+            TaskRow task = tasks.find(deliverable.getTaskId());
+            if (task != null && principalRef.equals(task.getAssigneeRef())) throw new AccessDeniedException("关联任务责任人不能担任独立评审人");
+        }
         ReviewRow review = new ReviewRow(); review.setDeliverableId(deliverableId); review.setReviewerRef(principalRef); review.setOutcome(outcome); review.setComment(comment); review.setEvidenceRefs(evidenceRefs); deliverables.insertReview(review);
         deliverables.updateStatus(deliverableId, outcome); audit(deliverable.getProjectId(), "DELIVERABLE", deliverableId, "DELIVERABLE_REVIEWED", "{\"reviewStatus\":" + quote(deliverable.getReviewStatus()) + "}", "{\"reviewStatus\":" + quote(outcome) + "}", principalRef, comment, evidenceRefs); return new DeliverableReviewRecord(review.getId(), principalRef, outcome, comment, evidenceRefs, java.time.Instant.now());
     }
