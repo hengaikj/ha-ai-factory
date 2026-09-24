@@ -25,10 +25,11 @@ public class MybatisProjectRepository implements ProjectRepository {
     private final ProjectIssueMapper issues;
     private final ProjectResourceMapper resources;
     private final ProjectGateMapper gates;
+    private final RuntimeConfigMapper runtimeConfigs;
     private final ObjectMapper json;
 
     public MybatisProjectRepository(PrincipalMapper principals, ProjectMapper projects,
-                                    ProjectMembershipMapper memberships, ProjectTaskMapper tasks, ProjectDeliverableMapper deliverables, ProjectIssueMapper issues, ProjectResourceMapper resources, ProjectGateMapper gates, ObjectMapper json) {
+                                    ProjectMembershipMapper memberships, ProjectTaskMapper tasks, ProjectDeliverableMapper deliverables, ProjectIssueMapper issues, ProjectResourceMapper resources, ProjectGateMapper gates, RuntimeConfigMapper runtimeConfigs, ObjectMapper json) {
         this.principals = principals;
         this.projects = projects;
         this.memberships = memberships;
@@ -37,6 +38,7 @@ public class MybatisProjectRepository implements ProjectRepository {
         this.issues = issues;
         this.resources = resources;
         this.gates = gates;
+        this.runtimeConfigs = runtimeConfigs;
         this.json = json;
     }
 
@@ -289,6 +291,13 @@ public class MybatisProjectRepository implements ProjectRepository {
     }
     private GateRecord gate(GateRow row) { return new GateRecord(row.getId(), row.getProjectId(), row.getPhase(), row.getStatus(), row.getSubmittedByRef(), row.getDecisionOwnerRef(), gates.taskIds(row.getId()), gates.deliverableIds(row.getId()), row.getSubmittedAt(), gates.checks(row.getId()).stream().map(this::check).toList()); }
     private GateCheckRecord check(GateCheckRow row) { return new GateCheckRecord(row.getId(), row.getCode(), row.getTitle(), row.getStatus(), row.getReviewerRef(), row.getComment(), row.getEvidenceRefs()); }
+
+    /** 读取Runtime授权状态；未配置时明确返回失败关闭状态。 */
+    @Override public RuntimeConfigRecord getRuntimeConfig(String principalRef, long projectId) {
+        if (memberships.countActiveMember(projectId, principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
+        RuntimeConfigRow row = runtimeConfigs.find(projectId);
+        return row == null ? new RuntimeConfigRecord(null, projectId, "UNCONFIGURED", null, null, null) : new RuntimeConfigRecord(row.getId(), projectId, row.getStatus(), row.getModelRef(), row.getApprovedAt(), row.getExpiresAt());
+    }
 
     private TaskRecord task(TaskRow row) { return new TaskRecord(row.getId(), row.getProjectId(), row.getTitle(), row.getDescription(), row.getPhase(), row.getAssigneeRef(), row.getAssigneeRole(), row.getStatus(), row.getCreatedAt(), row.getUpdatedAt()); }
 

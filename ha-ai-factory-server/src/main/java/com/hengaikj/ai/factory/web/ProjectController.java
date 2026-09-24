@@ -199,6 +199,12 @@ public class ProjectController {
         return GateItem.from(repository.decideGate(principal(user).principalRef(), gateId, body.decision(), body.comment()));
     }
 
+    /** 查询Agent Runtime配置状态，未批准配置明确保持UNCONFIGURED。 */
+    @GetMapping("/projects/{projectId}/agent-runtime/config-status")
+    public RuntimeConfigItem runtimeConfig(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId) {
+        return RuntimeConfigItem.from(repository.getRuntimeConfig(principal(user).principalRef(), projectId));
+    }
+
     /** 从Spring已验证的OIDC会话派生主体，不采信请求载荷中的操作者字段。 */
     private ProjectRepository.PrincipalRecord principal(OidcUser user) {
         if (user == null || user.getIssuer() == null || user.getSubject() == null || user.getSubject().isBlank()) {
@@ -272,6 +278,9 @@ public class ProjectController {
     }
     public record GateCheckItem(long id, String code, String title, String status, UUID reviewerRef, String comment, String evidenceRefs) {
         static GateCheckItem from(ProjectRepository.GateCheckRecord v) { return new GateCheckItem(v.id(), v.code(), v.title(), v.status(), v.reviewerRef() == null ? null : UUID.fromString(v.reviewerRef()), v.comment(), v.evidenceRefs()); }
+    }
+    public record RuntimeConfigItem(Long id, long projectId, String status, String modelRef, Instant approvedAt, Instant expiresAt) {
+        static RuntimeConfigItem from(ProjectRepository.RuntimeConfigRecord v) { return new RuntimeConfigItem(v.id(), v.projectId(), v.status(), v.modelRef(), v.approvedAt(), v.expiresAt()); }
     }
 
     public record ProjectItem(long id, String name, String description, Map<String, String> techStack,

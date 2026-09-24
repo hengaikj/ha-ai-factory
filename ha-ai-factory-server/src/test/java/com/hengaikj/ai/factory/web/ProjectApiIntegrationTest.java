@@ -137,6 +137,8 @@ class ProjectApiIntegrationTest {
         jdbc.update("INSERT INTO gate_checks(gate_id,code,title) VALUES(?,'REQ','需求检查')", gateId);
         mvc.perform(get("/projects/{projectId}/gates", projectId).with(alice))
                 .andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(1))).andExpect(jsonPath("$[0].status").value("PENDING"));
+        mvc.perform(get("/projects/{projectId}/agent-runtime/config-status", projectId).with(alice))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UNCONFIGURED"));
         mvc.perform(post("/gates/{gateId}/submission", gateId).with(alice).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"decisionOwnerRef\":\"" + principalRef + "\",\"taskIds\":[1],\"deliverableIds\":[]}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("READY_FOR_REVIEW"));
