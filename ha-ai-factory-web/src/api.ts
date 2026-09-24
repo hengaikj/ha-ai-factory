@@ -302,7 +302,7 @@ export function createProjectDeliverable(input: { projectId: number; title: stri
 }
 
 /** 提交交付物独立评审结论。 */
-export function reviewProjectDeliverable(input: { deliverableId: number; outcome: string; comment: string; evidenceRefs?: string[]; csrfToken: string }): Promise<unknown> {
+export function reviewProjectDeliverable(input: { deliverableId: number; outcome: 'APPROVED' | 'RETURNED' | 'CLARIFICATION_REQUIRED'; comment: string; evidenceRefs?: string[]; csrfToken: string }): Promise<unknown> {
   const { deliverableId, csrfToken, ...body } = input
   return request(`/deliverables/${deliverableId}/reviews`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
 }
@@ -314,7 +314,7 @@ export function createProjectIssue(input: { projectId: number; title: string; de
 }
 
 /** 记录人工Issue决策。 */
-export function decideProjectIssue(input: { issueId: number; decision: string; outcome: string; csrfToken: string }): Promise<OpenIssue> {
+export function decideProjectIssue(input: { issueId: number; decision: string; outcome: 'OPEN' | 'HUMAN_DECISION_REQUIRED' | 'DECIDED' | 'TRACKING' | 'CLOSED'; csrfToken: string }): Promise<OpenIssue> {
   const { issueId, csrfToken, ...body } = input
   return request(`/issues/${issueId}/decisions`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
 }
@@ -342,13 +342,13 @@ export function submitGate(input: { gateId: number; decisionOwnerRef: string; ta
 }
 
 /** 提交Gate检查结论。 */
-export function decideGateCheck(input: { gateId: number; checkId: number; status: string; comment?: string; evidenceRefs?: string[]; csrfToken: string }): Promise<GateCheck> {
+export function decideGateCheck(input: { gateId: number; checkId: number; status: 'PASSED' | 'FAILED' | 'CLARIFICATION_REQUIRED'; comment?: string; evidenceRefs?: string[]; csrfToken: string }): Promise<GateCheck> {
   const { gateId, checkId, csrfToken, ...body } = input
   return request(`/gates/${gateId}/checks/${checkId}/decision`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
 }
 
 /** 提交Gate最终决定。 */
-export function decideGate(input: { gateId: number; decision: string; comment?: string; csrfToken: string }): Promise<ProjectGate> {
+export function decideGate(input: { gateId: number; decision: 'APPROVED' | 'RETURNED' | 'HUMAN_DECISION_REQUIRED'; comment?: string; csrfToken: string }): Promise<ProjectGate> {
   const { gateId, csrfToken, ...body } = input
   return request(`/gates/${gateId}/decision`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
 }

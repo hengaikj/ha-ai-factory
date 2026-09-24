@@ -42,8 +42,8 @@ const workspaceActivity = ref<ActivityPage | null>(null)
 const workspaceResources = ref<ProjectResource[]>([])
 const workspaceRuntime = ref<RuntimeConfigStatus | null>(null)
 const deliverableTitle = ref(''); const deliverablePhase = ref(''); const deliverableVersion = ref('v1.0'); const deliverableSourceRef = ref(''); const deliverableSaving = ref(false)
-const deliverableReviewOutcome = ref('APPROVED'); const deliverableReviewComment = ref(''); const deliverableReviewing = ref(false)
-const issueTitle = ref(''); const issueDescription = ref(''); const issueImpact = ref(''); const issueDecisionRole = ref('OWNER'); const issueSaving = ref(false); const issueDecision = ref(''); const issueOutcome = ref('DECIDED'); const issueDeciding = ref(false)
+const deliverableReviewOutcome = ref<'APPROVED' | 'RETURNED' | 'CLARIFICATION_REQUIRED'>('APPROVED'); const deliverableReviewComment = ref(''); const deliverableReviewing = ref(false)
+const issueTitle = ref(''); const issueDescription = ref(''); const issueImpact = ref(''); const issueDecisionRole = ref('OWNER'); const issueSaving = ref(false); const issueDecision = ref(''); const issueOutcome = ref<'OPEN' | 'HUMAN_DECISION_REQUIRED' | 'DECIDED' | 'TRACKING' | 'CLOSED'>('DECIDED'); const issueDeciding = ref(false)
 const gateWorking = ref(false)
 const stageWorking = ref(false)
 const projectUpdating = ref(false)
@@ -255,7 +255,7 @@ async function submitDeliverable() {
 async function reviewDeliverable(item: Deliverable) {
   if (!session.value || deliverableReviewing.value || !deliverableReviewOutcome.value.trim() || !deliverableReviewComment.value.trim()) return
   deliverableReviewing.value = true; workspaceError.value = ''
-  try { await reviewProjectDeliverable({ deliverableId: item.id, outcome: deliverableReviewOutcome.value.trim(), comment: deliverableReviewComment.value.trim(), csrfToken: session.value.csrfToken }); workspaceDeliverables.value = (await getProjectDeliverables(item.projectId)).items; deliverableReviewOutcome.value = ''; deliverableReviewComment.value = '' }
+  try { await reviewProjectDeliverable({ deliverableId: item.id, outcome: deliverableReviewOutcome.value, comment: deliverableReviewComment.value.trim(), csrfToken: session.value.csrfToken }); workspaceDeliverables.value = (await getProjectDeliverables(item.projectId)).items; deliverableReviewOutcome.value = 'APPROVED'; deliverableReviewComment.value = '' }
   catch (error) { workspaceError.value = error instanceof Error ? error.message : '交付物评审失败，请稍后重试。' }
   finally { deliverableReviewing.value = false }
 }
@@ -293,20 +293,20 @@ async function submitIssue() {
 async function decideIssue(item: OpenIssue) {
   if (!session.value || issueDeciding.value || !issueDecision.value.trim()) return
   issueDeciding.value = true; workspaceError.value = ''
-  try { const updated = await decideProjectIssue({ issueId: item.id, decision: issueDecision.value.trim(), outcome: issueOutcome.value.trim(), csrfToken: session.value.csrfToken }); workspaceIssues.value = workspaceIssues.value.map(v => v.id === updated.id ? updated : v); issueDecision.value = ''; issueOutcome.value = '' }
+  try { const updated = await decideProjectIssue({ issueId: item.id, decision: issueDecision.value.trim(), outcome: issueOutcome.value, csrfToken: session.value.csrfToken }); workspaceIssues.value = workspaceIssues.value.map(v => v.id === updated.id ? updated : v); issueDecision.value = ''; issueOutcome.value = 'DECIDED' }
   catch (error) { workspaceError.value = error instanceof Error ? error.message : 'Issue决策失败，请稍后重试。' }
   finally { issueDeciding.value = false }
 }
 
-async function decideCheck(gate: ProjectGate, checkId: number, status: string) {
+async function decideCheck(gate: ProjectGate, checkId: number, status: 'PASSED' | 'FAILED') {
   if (!session.value || gateWorking.value) return
   gateWorking.value = true; workspaceError.value = ''
-  try { await decideGateCheck({ gateId: gate.id, checkId, status, comment: status === 'APPROVED' ? 'Reviewer通过检查' : 'Reviewer退回检查', csrfToken: session.value.csrfToken }); const refreshed = await getProjectGates(gate.projectId); workspaceGates.value = refreshed }
+  try { await decideGateCheck({ gateId: gate.id, checkId, status, comment: status === 'PASSED' ? 'Reviewer通过检查' : 'Reviewer退回检查', csrfToken: session.value.csrfToken }); const refreshed = await getProjectGates(gate.projectId); workspaceGates.value = refreshed }
   catch (error) { workspaceError.value = error instanceof Error ? error.message : 'Gate检查决策失败，请稍后重试。' }
   finally { gateWorking.value = false }
 }
 
-async function decideFinalGate(gate: ProjectGate, decision: string) {
+async function decideFinalGate(gate: ProjectGate, decision: 'APPROVED' | 'RETURNED') {
   if (!session.value || gateWorking.value) return
   gateWorking.value = true; workspaceError.value = ''
   try { await decideGate({ gateId: gate.id, decision, comment: decision === 'APPROVED' ? 'Reviewer批准Gate' : 'Reviewer退回Gate', csrfToken: session.value.csrfToken }); workspaceGates.value = await getProjectGates(gate.projectId) }
