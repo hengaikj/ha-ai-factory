@@ -16,7 +16,7 @@
 ## 验证
 
 - `DOCKER_CONFIG=/tmp/ha_factory_empty_docker_config mvn -f ha-ai-factory-server/pom.xml test -q`：通过；20 个测试，0 失败。Testcontainers MySQL 8.0.36 成功执行 Flyway V1/V2。
-- `cd ha-ai-factory-web && pnpm test`：通过；6 个测试，0 失败。
+- `cd ha-ai-factory-web && pnpm test`：通过；7 个测试，0 失败。
 - `cd ha-ai-factory-web && pnpm build`：通过；`vue-tsc -b` 与 Vite 生产构建成功。
 - `git diff --check`：通过。
 - 隔离 smoke 服务验证 Vite 页面 `/` 返回 200，代理请求 `/auth/session`、`/projects` 返回预期 401；OIDC 未配置时 `/auth/login` 返回预期 503。测试 MySQL、Spring 和 Vite 进程已停止/清理。
