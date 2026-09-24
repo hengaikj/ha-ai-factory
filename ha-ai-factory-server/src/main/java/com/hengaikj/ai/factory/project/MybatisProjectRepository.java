@@ -131,6 +131,7 @@ public class MybatisProjectRepository implements ProjectRepository {
         if (memberships.countActivePrincipal(targetPrincipalRef) == 0) throw new AccessDeniedException("目标主体尚未完成企业身份认证");
         memberships.activateMember(projectId, targetPrincipalRef);
         replaceRoles(projectId, targetPrincipalRef, roles, principalRef);
+        audit(projectId, "MEMBER", targetPrincipalRef.hashCode(), "MEMBER_ADDED", null, "{\"roles\":" + quote(roles.toString()) + "}", principalRef, null, null);
         return member(projectId, targetPrincipalRef);
     }
 
@@ -144,6 +145,7 @@ public class MybatisProjectRepository implements ProjectRepository {
             throw new IllegalArgumentException("项目必须至少保留一名Owner");
         }
         replaceRoles(projectId, targetPrincipalRef, roles, principalRef);
+        audit(projectId, "MEMBER", targetPrincipalRef.hashCode(), "MEMBER_ROLES_REPLACED", null, "{\"roles\":" + quote(roles.toString()) + "}", principalRef, null, null);
         return member(projectId, targetPrincipalRef);
     }
 
@@ -156,6 +158,7 @@ public class MybatisProjectRepository implements ProjectRepository {
         if (owner && memberships.countOwners(projectId) <= 1) throw new IllegalArgumentException("项目必须至少保留一名Owner");
         if (memberships.revokeMember(projectId, targetPrincipalRef) == 0) throw new IllegalArgumentException("成员不存在或已被移除");
         if (owner) memberships.updateOwnerRef(projectId, memberships.listActive(projectId).stream().filter(m -> roles(m.getRoles()).contains("OWNER")).findFirst().orElseThrow().getPrincipalRef());
+        audit(projectId, "MEMBER", targetPrincipalRef.hashCode(), "MEMBER_REVOKED", "{\"status\":\"ACTIVE\"}", "{\"status\":\"REVOKED\"}", principalRef, null, null);
     }
 
     /** 复用服务端角色查询，禁止客户端绕过项目管理权限。 */
@@ -195,6 +198,7 @@ public class MybatisProjectRepository implements ProjectRepository {
     public TaskRecord createTask(String principalRef, long projectId, String title, String description, String phase, String assigneeRef, String assigneeRole) {
         if (memberships.countTaskManager(projectId, principalRef) == 0) throw new AccessDeniedException("需要Owner、Project Admin或Orchestrator角色");
         TaskRow row = new TaskRow(); row.setProjectId(projectId); row.setTitle(title); row.setDescription(description); row.setPhase(phase); row.setAssigneeRef(assigneeRef); row.setAssigneeRole(assigneeRole); row.setCreatedByRef(principalRef); tasks.insert(row);
+        audit(projectId, "TASK", row.getId(), "TASK_CREATED", null, "{\"status\":\"NOT_STARTED\"}", principalRef, null, null);
         return task(tasks.find(row.getId()));
     }
 
@@ -213,7 +217,9 @@ public class MybatisProjectRepository implements ProjectRepository {
         TaskRow row = tasks.find(taskId); if (row == null) throw new IllegalArgumentException("任务不存在");
         if (memberships.countTaskManager(row.getProjectId(), principalRef) == 0) throw new AccessDeniedException("需要Owner、Project Admin或Orchestrator角色");
         if (status != null && !Set.of("NOT_STARTED", "IN_PROGRESS", "READY_FOR_REVIEW", "COMPLETED", "RETURNED", "BLOCKED", "HUMAN_DECISION_REQUIRED").contains(status)) throw new IllegalArgumentException("任务状态无效");
+        String beforeStatus = row.getStatus();
         row.setTitle(title == null ? row.getTitle() : title); row.setDescription(description == null ? row.getDescription() : description); row.setAssigneeRef(assigneeRef == null ? row.getAssigneeRef() : assigneeRef); row.setAssigneeRole(assigneeRole == null ? row.getAssigneeRole() : assigneeRole); row.setStatus(status == null ? row.getStatus() : status); tasks.update(row);
+        if (!beforeStatus.equals(row.getStatus())) audit(row.getProjectId(), "TASK", row.getId(), "TASK_STATUS_CHANGED", "{\"status\":" + quote(beforeStatus) + "}", "{\"status\":" + quote(row.getStatus()) + "}", principalRef, null, null);
         return task(tasks.find(taskId));
     }
 
@@ -231,6 +237,7 @@ public class MybatisProjectRepository implements ProjectRepository {
     public DeliverableRecord createDeliverable(String principalRef, long projectId, Long taskId, String title, String phase, String version, String sourceRef) {
         if (memberships.countTaskManager(projectId, principalRef) == 0) throw new AccessDeniedException("需要Owner、Project Admin或Orchestrator角色");
         DeliverableRow row = new DeliverableRow(); row.setProjectId(projectId); row.setTaskId(taskId); row.setTitle(title); row.setPhase(phase); row.setVersion(version); row.setSourceRef(sourceRef); row.setCreatedByRef(principalRef); deliverables.insert(row);
+        audit(projectId, "DELIVERABLE", row.getId(), "DELIVERABLE_REGISTERED", null, "{\"reviewStatus\":\"PENDING\"}", principalRef, null, null);
         return deliverable(deliverables.find(row.getId()));
     }
 
@@ -243,7 +250,7 @@ public class MybatisProjectRepository implements ProjectRepository {
         if (memberships.countReviewer(deliverable.getProjectId(), principalRef) == 0) throw new AccessDeniedException("需要项目Reviewer角色");
         if (principalRef.equals(deliverable.getCreatedByRef())) throw new AccessDeniedException("交付物登记人不能担任独立评审人");
         ReviewRow review = new ReviewRow(); review.setDeliverableId(deliverableId); review.setReviewerRef(principalRef); review.setOutcome(outcome); review.setComment(comment); review.setEvidenceRefs(evidenceRefs); deliverables.insertReview(review);
-        deliverables.updateStatus(deliverableId, outcome); return new DeliverableReviewRecord(review.getId(), principalRef, outcome, comment, evidenceRefs, java.time.Instant.now());
+        deliverables.updateStatus(deliverableId, outcome); audit(deliverable.getProjectId(), "DELIVERABLE", deliverableId, "DELIVERABLE_REVIEWED", "{\"reviewStatus\":" + quote(deliverable.getReviewStatus()) + "}", "{\"reviewStatus\":" + quote(outcome) + "}", principalRef, comment, evidenceRefs); return new DeliverableReviewRecord(review.getId(), principalRef, outcome, comment, evidenceRefs, java.time.Instant.now());
     }
 
     private DeliverableRecord deliverable(DeliverableRow row) { return new DeliverableRecord(row.getId(), row.getProjectId(), row.getTaskId(), row.getTitle(), row.getPhase(), row.getVersion(), row.getSourceRef(), row.getReviewStatus(), row.getCreatedAt()); }
@@ -262,7 +269,7 @@ public class MybatisProjectRepository implements ProjectRepository {
         if (memberships.countTaskManager(projectId, principalRef) == 0) throw new AccessDeniedException("需要Owner、Project Admin或Orchestrator角色");
         String effectiveStatus = status == null ? "OPEN" : status;
         requireAllowed(effectiveStatus, ISSUE_CREATE_STATUSES, "待决事项初始状态无效");
-        IssueRow row = new IssueRow(); row.setProjectId(projectId); row.setCode(code); row.setTitle(title); row.setDescription(description); row.setImpact(impact); row.setDecisionRole(decisionRole); row.setStatus(effectiveStatus); row.setCreatedByRef(principalRef); issues.insert(row); return issue(issues.find(row.getId()));
+        IssueRow row = new IssueRow(); row.setProjectId(projectId); row.setCode(code); row.setTitle(title); row.setDescription(description); row.setImpact(impact); row.setDecisionRole(decisionRole); row.setStatus(effectiveStatus); row.setCreatedByRef(principalRef); issues.insert(row); audit(projectId, "ISSUE", row.getId(), "ISSUE_CREATED", null, "{\"status\":" + quote(effectiveStatus) + "}", principalRef, null, null); return issue(issues.find(row.getId()));
     }
 
     /** 记录人工决策并推进事项状态。 */
@@ -272,7 +279,7 @@ public class MybatisProjectRepository implements ProjectRepository {
         IssueRow row = issues.find(issueId); if (row == null) throw new IllegalArgumentException("事项不存在");
         if (memberships.countActiveMember(row.getProjectId(), principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
         requireAllowed(status, ISSUE_DECISION_STATUSES, "待决事项决策状态无效");
-        row.setDecision(decision); row.setStatus(status); row.setDecidedByRef(principalRef); issues.decide(row); return issue(issues.find(issueId));
+        String beforeStatus = row.getStatus(); row.setDecision(decision); row.setStatus(status); row.setDecidedByRef(principalRef); issues.decide(row); audit(row.getProjectId(), "ISSUE", row.getId(), "ISSUE_DECIDED", "{\"status\":" + quote(beforeStatus) + "}", "{\"status\":" + quote(status) + "}", principalRef, decision, null); return issue(issues.find(issueId));
     }
 
     private IssueRecord issue(IssueRow row) { return new IssueRecord(row.getId(), row.getProjectId(), row.getCode(), row.getTitle(), row.getDescription(), row.getImpact(), row.getDecisionRole(), row.getStatus(), row.getDecision(), row.getCreatedAt(), row.getDecidedAt()); }
@@ -313,6 +320,7 @@ public class MybatisProjectRepository implements ProjectRepository {
         row.setSubmittedByRef(principalRef); row.setDecisionOwnerRef(decisionOwnerRef); gates.submit(row);
         gates.deleteTaskScopes(gateId); gates.deleteDeliverableScopes(gateId);
         taskIds.forEach(id -> gates.addTaskScope(row.getProjectId(), gateId, id)); deliverableIds.forEach(id -> gates.addDeliverableScope(row.getProjectId(), gateId, id));
+        audit(row.getProjectId(), "GATE", gateId, "GATE_SUBMITTED", "{\"status\":" + quote(row.getStatus()) + "}", "{\"status\":\"READY_FOR_REVIEW\"}", principalRef, null, null);
         return gate(gates.find(gateId));
     }
     /** 记录独立Reviewer检查结论并执行冲突校验。 */
@@ -321,7 +329,7 @@ public class MybatisProjectRepository implements ProjectRepository {
         GateRow gate = gates.find(gateId); if (gate == null || !"READY_FOR_REVIEW".equals(gate.getStatus())) throw new IllegalArgumentException("Gate未进入评审状态");
         if (memberships.countReviewer(gate.getProjectId(), principalRef) == 0 || gates.countConflict(gateId, principalRef) > 0) throw new AccessDeniedException("Reviewer独立性校验未通过");
         GateCheckRow row = gates.checks(gateId).stream().filter(c -> c.getId().equals(checkId)).findFirst().orElseThrow(() -> new IllegalArgumentException("检查项不存在"));
-        row.setReviewerRef(principalRef); row.setStatus(status); row.setComment(comment); row.setEvidenceRefs(evidenceRefs); gates.decideCheck(row); return check(row);
+        String beforeStatus = row.getStatus(); row.setReviewerRef(principalRef); row.setStatus(status); row.setComment(comment); row.setEvidenceRefs(evidenceRefs); gates.decideCheck(row); audit(gate.getProjectId(), "GATE_CHECK", checkId, "GATE_CHECK_DECIDED", "{\"status\":" + quote(beforeStatus) + "}", "{\"status\":" + quote(status) + "}", principalRef, comment, evidenceRefs); return check(row);
     }
     /** 记录最终Gate决定，必须先完成全部检查项且通过独立性校验。 */
     @Override @Transactional public GateRecord decideGate(String principalRef, long gateId, String decision, String comment) {
@@ -330,7 +338,7 @@ public class MybatisProjectRepository implements ProjectRepository {
         if (memberships.countReviewer(gate.getProjectId(), principalRef) == 0 || gates.countConflict(gateId, principalRef) > 0) throw new AccessDeniedException("Reviewer独立性校验未通过");
         if (gates.pendingChecks(gateId) > 0) throw new IllegalArgumentException("仍有未完成的Gate检查项");
         if ("APPROVED".equals(decision) && gates.nonPassedChecks(gateId) > 0) throw new IllegalArgumentException("存在未通过的Gate检查项，不能批准Gate");
-        gates.updateStatus(gateId, decision); gates.addDecision(gateId, principalRef, decision, comment); return gate(gates.find(gateId));
+        gates.updateStatus(gateId, decision); gates.addDecision(gateId, principalRef, decision, comment); audit(gate.getProjectId(), "GATE", gateId, "GATE_DECIDED", "{\"status\":\"READY_FOR_REVIEW\"}", "{\"status\":" + quote(decision) + "}", principalRef, comment, null); return gate(gates.find(gateId));
     }
     private GateRecord gate(GateRow row) { GateDecisionRow decision = gates.latestDecision(row.getId()); return new GateRecord(row.getId(), row.getProjectId(), row.getPhase(), row.getStatus(), row.getSubmittedByRef(), row.getDecisionOwnerRef(), gates.taskIds(row.getId()), gates.deliverableIds(row.getId()), row.getSubmittedAt(), decision == null ? null : decision.getReviewerRef(), decision == null ? null : decision.getComment(), decision == null ? null : decision.getDecidedAt(), gates.checks(row.getId()).stream().map(this::check).toList()); }
     private GateCheckRecord check(GateCheckRow row) { return new GateCheckRecord(row.getId(), row.getCode(), row.getTitle(), row.getStatus(), row.getReviewerRef(), row.getComment(), row.getEvidenceRefs()); }
@@ -364,11 +372,13 @@ public class MybatisProjectRepository implements ProjectRepository {
         }
         GateRow gate = gates.list(projectId).stream().filter(g -> g.getPhase().equals(row.getCurrentPhase())).findFirst().orElseThrow(() -> new IllegalArgumentException("当前阶段尚未建立Gate"));
         if (!"APPROVED".equals(gate.getStatus())) throw new IllegalArgumentException("当前阶段Gate尚未通过");
+        String beforePhase = row.getCurrentPhase();
         projects.updatePhase(projectId, targetPhase);
         GateRow nextGate = new GateRow();
         nextGate.setProjectId(projectId);
         nextGate.setPhase(targetPhase);
         gates.ensure(nextGate);
+        audit(projectId, "PROJECT", projectId, "PROJECT_PHASE_CHANGED", "{\"phase\":" + quote(beforePhase) + "}", "{\"phase\":" + quote(targetPhase) + "}", principalRef, null, null);
         return toRecord(projects.findActiveForPrincipal(principalRef, projectId));
     }
 
@@ -378,6 +388,22 @@ public class MybatisProjectRepository implements ProjectRepository {
     private String serialize(Map<String, String> value) {
         try { return value == null ? null : json.writeValueAsString(value); }
         catch (JsonProcessingException e) { throw new IllegalArgumentException("techStack无法序列化", e); }
+    }
+
+    /** 写入统一项目审计事件，状态摘要保持可追溯且不包含秘密。 */
+    private void audit(long projectId, String objectType, long objectId, String action, String beforeState,
+                       String afterState, String actorRef, String comment, String evidenceRefs) {
+        AuditEventRow event = new AuditEventRow();
+        event.setProjectId(projectId); event.setObjectType(objectType); event.setObjectId(objectId);
+        event.setAction(action); event.setBeforeState(beforeState); event.setAfterState(afterState);
+        event.setActorRef(actorRef); event.setComment(comment); event.setEvidenceRefs(evidenceRefs);
+        auditEvents.insert(event);
+    }
+
+    /** 生成可安全嵌入JSON状态摘要的字符串。 */
+    private String quote(String value) {
+        try { return json.writeValueAsString(value); }
+        catch (JsonProcessingException e) { throw new IllegalStateException("审计摘要无法序列化", e); }
     }
 
     /** 将数据库行转换为接口层项目快照并解析技术栈JSON。 */

@@ -31,6 +31,7 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -199,6 +200,9 @@ class ProjectApiIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[1].phase").value("REQUIREMENT"))
                 .andExpect(jsonPath("$[1].status").value("PENDING"));
+        mvc.perform(get("/projects/{projectId}/activity", projectId).with(alice))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total", greaterThan(1)))
+                .andExpect(jsonPath("$.items[0].actorRef").isNotEmpty());
         mvc.perform(get("/projects").with(bob))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(1)))
