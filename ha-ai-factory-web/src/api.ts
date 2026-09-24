@@ -127,6 +127,13 @@ export interface RuntimeConfigStatus {
   expiresAt?: string | null
 }
 
+export interface ActivityPage {
+  items: Array<{ id: number; objectType: string; objectId: number; action: string; beforeState?: string | null; afterState?: string | null; actorRef: string; comment?: string | null; evidenceRefs?: string[]; occurredAt: string }>
+  page: number
+  pageSize: number
+  total: number
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -283,3 +290,9 @@ export function submitGate(input: { gateId: number; decisionOwnerRef: string; ta
 
 /** 读取Runtime授权状态；客户端永远不接收密钥。 */
 export function getRuntimeConfigStatus(projectId: number): Promise<RuntimeConfigStatus> { return request(`/projects/${projectId}/agent-runtime/config-status`) }
+
+/** 分页读取项目审计活动摘要。 */
+export function getProjectActivity(projectId: number, page = 1, pageSize = 20, objectType?: string): Promise<ActivityPage> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) }); if (objectType) params.set('objectType', objectType)
+  return request(`/projects/${projectId}/activity?${params.toString()}`)
+}

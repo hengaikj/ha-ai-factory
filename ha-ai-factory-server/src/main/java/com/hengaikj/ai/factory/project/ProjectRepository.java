@@ -33,6 +33,7 @@ public interface ProjectRepository {
     GateCheckRecord decideGateCheck(String principalRef, long gateId, long checkId, String status, String comment, String evidenceRefs);
     GateRecord decideGate(String principalRef, long gateId, String decision, String comment);
     RuntimeConfigRecord getRuntimeConfig(String principalRef, long projectId);
+    ActivityPage listActivity(String principalRef, long projectId, String objectType, int page, int pageSize);
 
     record PrincipalRecord(String principalRef, String displayName) {}
     record ProjectRecord(long id, String name, String description, Map<String, String> techStack,
@@ -50,4 +51,6 @@ public interface ProjectRepository {
     record GateRecord(long id, long projectId, String phase, String status, String submittedByRef, String decisionOwnerRef, List<Long> taskIds, List<Long> deliverableIds, Instant submittedAt, List<GateCheckRecord> checks) {}
     record GateCheckRecord(long id, String code, String title, String status, String reviewerRef, String comment, String evidenceRefs) {}
     record RuntimeConfigRecord(Long id, long projectId, String status, String modelRef, Instant approvedAt, Instant expiresAt) {}
+    record ActivityRecord(long id, String objectType, long objectId, String action, String beforeState, String afterState, String actorRef, String comment, String evidenceRefs, Instant occurredAt) {}
+    record ActivityPage(List<ActivityRecord> items, int page, int pageSize, long total) {}
 }

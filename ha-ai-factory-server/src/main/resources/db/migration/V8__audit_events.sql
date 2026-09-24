@@ -1,0 +1,4 @@
+CREATE TABLE audit_events (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '审计事件主键', project_id BIGINT NOT NULL COMMENT '所属项目主键', object_type VARCHAR(32) NOT NULL COMMENT '被变更对象类型', object_id BIGINT NOT NULL COMMENT '被变更对象主键', action VARCHAR(128) NOT NULL COMMENT '变更动作', before_state JSON NULL COMMENT '变更前状态摘要', after_state JSON NULL COMMENT '变更后状态摘要', actor_ref CHAR(36) NOT NULL COMMENT '操作者主体UUID', comment VARCHAR(4000) NULL COMMENT '变更说明', evidence_refs JSON NULL COMMENT '关联证据引用列表', occurred_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '事件发生时间',
+  PRIMARY KEY(id), KEY idx_audit_project_time(project_id, occurred_at), KEY idx_audit_object(object_type, object_id), CONSTRAINT fk_audit_project FOREIGN KEY(project_id) REFERENCES projects(id), CONSTRAINT fk_audit_actor FOREIGN KEY(actor_ref) REFERENCES principals(principal_ref)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='项目操作与状态审计事件';

@@ -205,6 +205,16 @@ public class ProjectController {
         return RuntimeConfigItem.from(repository.getRuntimeConfig(principal(user).principalRef(), projectId));
     }
 
+    /** 分页查询项目审计活动，仅返回项目成员可见的状态摘要。 */
+    @GetMapping("/projects/{projectId}/activity")
+    public ActivityPage activity(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId,
+                                 @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize,
+                                 @RequestParam(required = false) @Size(max = 64) String objectType) {
+        validatePage(page, pageSize);
+        var result = repository.listActivity(principal(user).principalRef(), projectId, objectType, page, pageSize);
+        return new ActivityPage(result.items().stream().map(ActivityItem::from).toList(), page, pageSize, result.total());
+    }
+
     /** 从Spring已验证的OIDC会话派生主体，不采信请求载荷中的操作者字段。 */
     private ProjectRepository.PrincipalRecord principal(OidcUser user) {
         if (user == null || user.getIssuer() == null || user.getSubject() == null || user.getSubject().isBlank()) {
@@ -281,6 +291,10 @@ public class ProjectController {
     }
     public record RuntimeConfigItem(Long id, long projectId, String status, String modelRef, Instant approvedAt, Instant expiresAt) {
         static RuntimeConfigItem from(ProjectRepository.RuntimeConfigRecord v) { return new RuntimeConfigItem(v.id(), v.projectId(), v.status(), v.modelRef(), v.approvedAt(), v.expiresAt()); }
+    }
+    public record ActivityPage(java.util.List<ActivityItem> items, int page, int pageSize, long total) {}
+    public record ActivityItem(long id, String objectType, long objectId, String action, String beforeState, String afterState, UUID actorRef, String comment, String evidenceRefs, Instant occurredAt) {
+        static ActivityItem from(ProjectRepository.ActivityRecord v) { return new ActivityItem(v.id(), v.objectType(), v.objectId(), v.action(), v.beforeState(), v.afterState(), UUID.fromString(v.actorRef()), v.comment(), v.evidenceRefs(), v.occurredAt()); }
     }
 
     public record ProjectItem(long id, String name, String description, Map<String, String> techStack,

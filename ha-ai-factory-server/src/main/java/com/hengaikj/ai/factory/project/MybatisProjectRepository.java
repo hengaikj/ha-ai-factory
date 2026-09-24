@@ -26,10 +26,11 @@ public class MybatisProjectRepository implements ProjectRepository {
     private final ProjectResourceMapper resources;
     private final ProjectGateMapper gates;
     private final RuntimeConfigMapper runtimeConfigs;
+    private final AuditEventMapper auditEvents;
     private final ObjectMapper json;
 
     public MybatisProjectRepository(PrincipalMapper principals, ProjectMapper projects,
-                                    ProjectMembershipMapper memberships, ProjectTaskMapper tasks, ProjectDeliverableMapper deliverables, ProjectIssueMapper issues, ProjectResourceMapper resources, ProjectGateMapper gates, RuntimeConfigMapper runtimeConfigs, ObjectMapper json) {
+                                    ProjectMembershipMapper memberships, ProjectTaskMapper tasks, ProjectDeliverableMapper deliverables, ProjectIssueMapper issues, ProjectResourceMapper resources, ProjectGateMapper gates, RuntimeConfigMapper runtimeConfigs, AuditEventMapper auditEvents, ObjectMapper json) {
         this.principals = principals;
         this.projects = projects;
         this.memberships = memberships;
@@ -39,6 +40,7 @@ public class MybatisProjectRepository implements ProjectRepository {
         this.resources = resources;
         this.gates = gates;
         this.runtimeConfigs = runtimeConfigs;
+        this.auditEvents = auditEvents;
         this.json = json;
     }
 
@@ -70,6 +72,7 @@ public class MybatisProjectRepository implements ProjectRepository {
         projects.insert(row);
         memberships.insertActiveMember(row.getId(), principalRef);
         memberships.insertOwnerRole(row.getId(), principalRef);
+        AuditEventRow event = new AuditEventRow(); event.setProjectId(row.getId()); event.setObjectType("PROJECT"); event.setObjectId(row.getId()); event.setAction("PROJECT_CREATED"); event.setAfterState("{\"name\":\"" + name.replace("\"", "\\\"") + "\"}"); event.setActorRef(principalRef); auditEvents.insert(event);
         var now = java.time.Instant.now();
         return new ProjectRecord(row.getId(), name, description, techStack, principalRef, "DISCOVERY", "PENDING", 0, now, now);
     }
@@ -297,6 +300,13 @@ public class MybatisProjectRepository implements ProjectRepository {
         if (memberships.countActiveMember(projectId, principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
         RuntimeConfigRow row = runtimeConfigs.find(projectId);
         return row == null ? new RuntimeConfigRecord(null, projectId, "UNCONFIGURED", null, null, null) : new RuntimeConfigRecord(row.getId(), projectId, row.getStatus(), row.getModelRef(), row.getApprovedAt(), row.getExpiresAt());
+    }
+
+    /** 查询项目审计活动，默认按发生时间倒序分页。 */
+    @Override public ActivityPage listActivity(String principalRef, long projectId, String objectType, int page, int pageSize) {
+        if (memberships.countActiveMember(projectId, principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
+        int offset = Math.multiplyExact(page - 1, pageSize);
+        return new ActivityPage(auditEvents.list(projectId, objectType, pageSize, offset).stream().map(e -> new ActivityRecord(e.getId(), e.getObjectType(), e.getObjectId(), e.getAction(), e.getBeforeState(), e.getAfterState(), e.getActorRef(), e.getComment(), e.getEvidenceRefs(), e.getOccurredAt())).toList(), page, pageSize, auditEvents.count(projectId, objectType));
     }
 
     private TaskRecord task(TaskRow row) { return new TaskRecord(row.getId(), row.getProjectId(), row.getTitle(), row.getDescription(), row.getPhase(), row.getAssigneeRef(), row.getAssigneeRole(), row.getStatus(), row.getCreatedAt(), row.getUpdatedAt()); }

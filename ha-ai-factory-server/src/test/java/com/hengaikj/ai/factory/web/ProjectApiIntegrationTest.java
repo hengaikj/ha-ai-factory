@@ -99,6 +99,9 @@ class ProjectApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(projectId))
                 .andExpect(jsonPath("$.name").value("Alice project"));
+        mvc.perform(get("/projects/{projectId}/activity", projectId).with(alice))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].action").value("PROJECT_CREATED"));
         mvc.perform(post("/projects/{projectId}/tasks", projectId).with(alice).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"建立骨架\",\"phase\":\"DISCOVERY\",\"description\":\"任务说明\"}"))

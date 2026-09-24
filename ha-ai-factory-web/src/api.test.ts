@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { beginLogin, createProject, createProjectDeliverable, createProjectTask, getCurrentSession, getProjects, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, submitGate } from './api'
+import { beginLogin, createProject, createProjectDeliverable, createProjectTask, getCurrentSession, getProjects, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, submitGate } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -129,5 +129,12 @@ describe('contract API client', () => {
     vi.stubGlobal('fetch', fetchMock)
     await expect(getRuntimeConfigStatus(8)).resolves.toMatchObject({ projectId: 8, status: 'UNCONFIGURED' })
     expect(fetchMock).toHaveBeenCalledWith('/projects/8/agent-runtime/config-status', expect.objectContaining({ credentials: 'include' }))
+  })
+
+  it('loads paged project activity summaries', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ items: [], page: 2, pageSize: 10, total: 0 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(getProjectActivity(8, 2, 10, 'PROJECT')).resolves.toMatchObject({ page: 2 })
+    expect(fetchMock).toHaveBeenCalledWith('/projects/8/activity?page=2&pageSize=10&objectType=PROJECT', expect.objectContaining({ credentials: 'include' }))
   })
 })
