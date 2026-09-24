@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "status": "PROPOSED",
+  "repository": "hengaikj/ha-ai-factory",
+  "candidate_baseline_sha": "cd9d73768de2cccd207b1eb7139bf5036c0fcca2",
+  "accepted_baseline_sha": null,
+  "source": "GOV-00 /tmp/ha-ai-factory-gov00-20260924/observed-baseline.json",
+  "note": "候选基线尚未获得负责人接受；不得作为合入或部署授权。"
+}

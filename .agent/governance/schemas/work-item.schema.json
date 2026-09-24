@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "example_only", "id", "repository", "task_kind", "requested_action", "baseline_sha", "allowed_paths", "forbidden_paths", "required_scopes", "acceptance_ids", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"type": "string"}, "example_only": {"type": "boolean"}, "id": {"type": "string"}, "repository": {"type": "string"}, "task_kind": {"type": "string"}, "requested_action": {"type": "string"}, "baseline_sha": {"type": ["string", "null"]}, "allowed_paths": {"type": "array"}, "forbidden_paths": {"type": "array"}, "required_scopes": {"type": "array"}, "acceptance_ids": {"type": "array"}, "status": {"type": "string"}
+  }
+}
