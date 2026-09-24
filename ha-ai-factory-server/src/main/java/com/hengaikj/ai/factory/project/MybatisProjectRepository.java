@@ -309,6 +309,15 @@ public class MybatisProjectRepository implements ProjectRepository {
         return new ActivityPage(auditEvents.list(projectId, objectType, pageSize, offset).stream().map(e -> new ActivityRecord(e.getId(), e.getObjectType(), e.getObjectId(), e.getAction(), e.getBeforeState(), e.getAfterState(), e.getActorRef(), e.getComment(), e.getEvidenceRefs(), e.getOccurredAt())).toList(), page, pageSize, auditEvents.count(projectId, objectType));
     }
 
+    /** 仅在当前阶段Gate通过后推进项目生命周期。 */
+    @Override @Transactional public ProjectRecord advanceProject(String principalRef, long projectId, String targetPhase) {
+        ProjectRow row = projects.findActiveForPrincipal(principalRef, projectId); if (row == null) throw new AccessDeniedException("项目不存在或当前主体无权访问");
+        if (memberships.countTaskManager(projectId, principalRef) == 0) throw new AccessDeniedException("需要项目编排角色");
+        GateRow gate = gates.list(projectId).stream().filter(g -> g.getPhase().equals(row.getCurrentPhase())).findFirst().orElseThrow(() -> new IllegalArgumentException("当前阶段尚未建立Gate"));
+        if (!"APPROVED".equals(gate.getStatus())) throw new IllegalArgumentException("当前阶段Gate尚未通过");
+        projects.updatePhase(projectId, targetPhase); return toRecord(projects.findActiveForPrincipal(principalRef, projectId));
+    }
+
     private TaskRecord task(TaskRow row) { return new TaskRecord(row.getId(), row.getProjectId(), row.getTitle(), row.getDescription(), row.getPhase(), row.getAssigneeRef(), row.getAssigneeRole(), row.getStatus(), row.getCreatedAt(), row.getUpdatedAt()); }
 
     /** 将技术栈映射序列化为MySQL JSON字段内容。 */

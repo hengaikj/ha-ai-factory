@@ -34,6 +34,7 @@ public interface ProjectRepository {
     GateRecord decideGate(String principalRef, long gateId, String decision, String comment);
     RuntimeConfigRecord getRuntimeConfig(String principalRef, long projectId);
     ActivityPage listActivity(String principalRef, long projectId, String objectType, int page, int pageSize);
+    ProjectRecord advanceProject(String principalRef, long projectId, String targetPhase);
 
     record PrincipalRecord(String principalRef, String displayName) {}
     record ProjectRecord(long id, String name, String description, Map<String, String> techStack,

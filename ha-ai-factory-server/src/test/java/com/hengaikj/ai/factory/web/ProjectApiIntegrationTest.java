@@ -162,6 +162,9 @@ class ProjectApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].gateStatus").value("APPROVED"))
                 .andExpect(jsonPath("$.items[0].openIssueCount").value(2));
+        mvc.perform(post("/projects/{projectId}/stage-transitions", projectId).with(alice).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"targetPhase\":\"PRODUCT\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.currentPhase").value("PRODUCT"));
         var bob = SecurityMockMvcRequestPostProcessors.oidcLogin()
                 .idToken(token -> token.issuer("https://idp.example").subject("bob"));
         mvc.perform(get("/projects").with(bob))

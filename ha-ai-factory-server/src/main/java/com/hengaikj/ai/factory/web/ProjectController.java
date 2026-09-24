@@ -215,6 +215,12 @@ public class ProjectController {
         return new ActivityPage(result.items().stream().map(ActivityItem::from).toList(), page, pageSize, result.total());
     }
 
+    /** 当前阶段Gate通过后推进项目生命周期。 */
+    @PostMapping("/projects/{projectId}/stage-transitions")
+    public ProjectItem advanceStage(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId, @Valid @RequestBody StageTransition body) {
+        return ProjectItem.from(repository.advanceProject(principal(user).principalRef(), projectId, body.targetPhase().trim()));
+    }
+
     /** 从Spring已验证的OIDC会话派生主体，不采信请求载荷中的操作者字段。 */
     private ProjectRepository.PrincipalRecord principal(OidcUser user) {
         if (user == null || user.getIssuer() == null || user.getSubject() == null || user.getSubject().isBlank()) {
@@ -296,6 +302,7 @@ public class ProjectController {
     public record ActivityItem(long id, String objectType, long objectId, String action, String beforeState, String afterState, UUID actorRef, String comment, String evidenceRefs, Instant occurredAt) {
         static ActivityItem from(ProjectRepository.ActivityRecord v) { return new ActivityItem(v.id(), v.objectType(), v.objectId(), v.action(), v.beforeState(), v.afterState(), UUID.fromString(v.actorRef()), v.comment(), v.evidenceRefs(), v.occurredAt()); }
     }
+    public record StageTransition(@NotBlank @Size(max = 64) String targetPhase) {}
 
     public record ProjectItem(long id, String name, String description, Map<String, String> techStack,
                               UUID ownerRef, String currentPhase, String gateStatus, int openIssueCount,
