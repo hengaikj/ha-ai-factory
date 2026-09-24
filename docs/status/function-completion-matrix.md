@@ -1,6 +1,6 @@
 # HA AI Software Factory 功能完成矩阵
 
-更新时间：2026-09-24
+更新时间：2026-09-24（HEAD cea924a）
 
 ## 已实现并可验证
 
@@ -13,9 +13,9 @@
 | 交付物登记与仓库引用 | 已实现 | 已实现 | Maven + Vitest |
 | 交付物独立评审 | 已实现 | 已实现 | Maven + Vitest |
 | Open Issue 创建与人工决策 | 已实现 | 已实现 | Maven + Vitest |
-| Gate 范围提交、检查项决策、最终决策 | 已实现 | 已实现 | Maven + Vitest |
+| Gate 范围提交、检查项决策、最终决策 | 已实现 | 已实现（含独立评审提交入口） | Maven + Vitest |
 | 阶段推进与 Gate 前置校验 | 已实现 | 已实现 | Maven + Vitest |
-| Activity 审计查询 | 已实现 | 已实现 | Maven 集成测试 |
+| Activity 审计查询 | 已实现（状态变更统一写入） | 已实现 | Maven 集成测试 |
 | Runtime 配置状态查询 | 已实现 | 已实现 | Maven + Vitest |
 
 ## 已实现但保持失败关闭
