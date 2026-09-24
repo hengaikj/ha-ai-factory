@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { beginLogin, createProject, createProjectDeliverable, createProjectTask, getCurrentSession, getProjects, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, submitGate } from './api'
+import { beginLogin, createProject, createProjectDeliverable, createProjectTask, getCurrentSession, getProjects, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, requestAgentRun, submitGate } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -136,5 +136,12 @@ describe('contract API client', () => {
     vi.stubGlobal('fetch', fetchMock)
     await expect(getProjectActivity(8, 2, 10, 'PROJECT')).resolves.toMatchObject({ page: 2 })
     expect(fetchMock).toHaveBeenCalledWith('/projects/8/activity?page=2&pageSize=10&objectType=PROJECT', expect.objectContaining({ credentials: 'include' }))
+  })
+
+  it('keeps Agent Runtime execution fail closed when configuration is not approved', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 409 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(requestAgentRun(8, 3, '00000000-0000-4000-8000-000000000001', 'c'.repeat(32))).rejects.toMatchObject({ status: 409 })
+    expect(fetchMock).toHaveBeenCalledWith('/projects/8/tasks/3/agent-runs', expect.objectContaining({ method: 'POST' }))
   })
 })

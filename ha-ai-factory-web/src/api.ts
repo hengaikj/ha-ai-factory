@@ -296,3 +296,13 @@ export function getProjectActivity(projectId: number, page = 1, pageSize = 20, o
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) }); if (objectType) params.set('objectType', objectType)
   return request(`/projects/${projectId}/activity?${params.toString()}`)
 }
+
+/** Gate通过后推进项目生命周期。 */
+export function advanceProjectStage(projectId: number, targetPhase: string, csrfToken: string): Promise<Project> {
+  return request(`/projects/${projectId}/stage-transitions`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify({ targetPhase }) })
+}
+
+/** 请求Runtime执行；当前按HD-002失败关闭并由调用方展示配置提示。 */
+export function requestAgentRun(projectId: number, taskId: number, requestKey: string, csrfToken: string): Promise<never> {
+  return request(`/projects/${projectId}/tasks/${taskId}/agent-runs`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify({ requestKey }) })
+}
