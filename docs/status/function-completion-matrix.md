@@ -1,6 +1,6 @@
 # HA AI Software Factory 功能完成矩阵
 
-更新时间：2026-09-24（HEAD cea924a）
+更新时间：2026-09-24（HEAD ca5988d）
 
 ## 已实现并可验证
 
@@ -40,7 +40,7 @@
 
 - 前端 Vitest：20 项通过。
 - 前端 `vue-tsc -b && vite build`：通过。
-- 后端 Maven 测试基线：36 项通过，0 失败，0 错误。
+- 后端 Maven 测试基线：36 项通过，0 失败，0 错误；包含成员角色替换资格校验后的集成验证。
 - 治理测试：16 项通过。
 - Agent Runtime Python 单元测试：27 项通过，覆盖请求/响应 schema、Laya provider 重试与错误映射、mTLS 配置和失败关闭策略。
 - 关键数据库迁移：Flyway V1–V8 已在 Testcontainers MySQL 集成测试中执行。
