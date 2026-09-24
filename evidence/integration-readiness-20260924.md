@@ -1,6 +1,6 @@
 # Integration Readiness Evidence
 
-日期：2026-09-24  
+日期：2026-09-25
 分支：`feature/M01-foundation`  
 阶段：`Integration`  
 对应状态：`.agent/state.yaml`
@@ -16,7 +16,7 @@
 | 浏览器 smoke | 本地 Vite + in-app browser | 页面渲染、未登录/后端不可用状态可见，未泄露异常详情 |
 | 前后端匿名联调 | 临时 MySQL 8.0.36 + Spring Boot + `curl /projects` | Flyway V1–V8 成功，匿名请求返回 HTTP 401；测试容器和进程已清理 |
 
-远端 GitHub Actions 运行 `36012742665`（Push）和 `36012752043`（PR #2 merge ref）均已通过 Governance、Backend、Frontend、Agent Runtime 四个 job。Agent Runtime 失败的依赖安装问题已由 `7a4d267` 修复；工作流使用 `pip install '.[dev]'` 时现在会安装 pytest。
+远端 GitHub Actions 最新提交 `5943977` 对应运行 `36024574623` 已通过 Governance、Backend、Frontend、Agent Runtime 四个 job。最新提交补齐任务责任主体分配及责任信息展示；此前 Agent Runtime 依赖安装问题已由 `7a4d267` 修复。
 
 ## 自动化配置
 
