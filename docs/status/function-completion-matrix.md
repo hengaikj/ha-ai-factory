@@ -42,6 +42,7 @@
 - 前端 `vue-tsc -b && vite build`：通过。
 - 后端 Maven 测试基线：36 项通过，0 失败，0 错误。
 - 治理测试：16 项通过。
+- Agent Runtime Python 单元测试：27 项通过，覆盖请求/响应 schema、Laya provider 重试与错误映射、mTLS 配置和失败关闭策略。
 - 关键数据库迁移：Flyway V1–V8 已在 Testcontainers MySQL 集成测试中执行。
 
 ## 交付结论
