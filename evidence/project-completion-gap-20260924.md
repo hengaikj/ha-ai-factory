@@ -31,13 +31,13 @@
 - 系统内文件托管、编辑、下载和 Git/CI 产品集成（HD-004、HD-006）。
 - 正式 SLA、容量、备份、RPO/RTO 和审计保留指标（HD-005）。
 - Laya 生产模型制品锁定、许可审查、中文离线评测和生产 mTLS 部署。
-- GitHub 分支保护和 required check：工作流已运行，但仓库规则未启用。
+- GitHub 分支保护和 required check：已在 master 启用并完成 API 核验；最新 push/PR 的四项 required checks 均通过。
 
 ## 下一步
 
 1. 对最新 HEAD 运行独立 Reviewer 复审并更新 PR。
 2. 增加真实浏览器 E2E 和部署前环境验证。
 3. 关闭 Laya Runtime Development Gate 的模型制品、许可、中文离线评测和 mTLS 部署条件。
-4. 通过 Release Contract 后再配置分支保护、required check 和生产发布。
+4. 在独立 Reviewer 完成最新 HEAD 复审并满足 Release 条件后，再执行生产发布。
 
 当前不能将项目标记为生产级整体完成；M02 开发范围已完成，Integration/Release Gate 保持 pending。

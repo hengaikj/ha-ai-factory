@@ -16,7 +16,7 @@
 | 浏览器 smoke | 本地 Vite + in-app browser | 页面渲染、未登录/后端不可用状态可见，未泄露异常详情 |
 | 前后端匿名联调 | 临时 MySQL 8.0.36 + Spring Boot + `curl /projects` | Flyway V1–V8 成功，匿名请求返回 HTTP 401；测试容器和进程已清理 |
 
-远端 GitHub Actions 运行 `35999813344`（Push）和 `35999819344`（PR #2 merge ref）均已通过 Governance、Backend、Frontend、Agent Runtime 四个 job。Agent Runtime 失败的依赖安装问题已由 `7a4d267` 修复；工作流使用 `pip install '.[dev]'` 时现在会安装 pytest。
+远端 GitHub Actions 运行 `36012742665`（Push）和 `36012752043`（PR #2 merge ref）均已通过 Governance、Backend、Frontend、Agent Runtime 四个 job。Agent Runtime 失败的依赖安装问题已由 `7a4d267` 修复；工作流使用 `pip install '.[dev]'` 时现在会安装 pytest。
 
 ## 自动化配置
 
@@ -28,7 +28,7 @@
 
 - PR #2 已转为可审查状态（非 Draft），当前 GitHub 状态为 `REVIEW_REQUIRED`；仓库协作者中目前只有执行账号，尚未配置独立 Reviewer，因此最终复审仍未完成。
 - 真实 OIDC 测试 IdP 和认证后的浏览器 E2E 尚未配置。
-- GitHub 分支保护和 required checks 尚未由仓库管理员启用并提供证据。
+- GitHub master 分支保护已启用：四项 required checks、至少一次批准、最新推送需批准、过期审查失效、强制管理员遵守、禁止强推/删除及会话解决；配置证据见 `evidence/governance/GOV-06/branch-protection-20260924.md`。
 - Laya 生产模型 revision、权重摘要、许可证审查、中文离线评测和 mTLS 部署尚未完成。
 - M02 的真实 Runtime、工具、外部副作用、Git/CI 产品集成和文件托管仍按 Contract 保持关闭或延期。
 
