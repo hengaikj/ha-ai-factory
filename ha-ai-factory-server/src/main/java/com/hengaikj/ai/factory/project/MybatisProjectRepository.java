@@ -311,7 +311,9 @@ public class MybatisProjectRepository implements ProjectRepository {
         requireAllowed(decision, GATE_DECISIONS, "Gate决定无效");
         GateRow gate = gates.find(gateId); if (gate == null || !"READY_FOR_REVIEW".equals(gate.getStatus())) throw new IllegalArgumentException("Gate未进入评审状态");
         if (memberships.countReviewer(gate.getProjectId(), principalRef) == 0 || gates.countConflict(gateId, principalRef) > 0) throw new AccessDeniedException("Reviewer独立性校验未通过");
-        if (gates.pendingChecks(gateId) > 0) throw new IllegalArgumentException("仍有未完成的Gate检查项"); gates.updateStatus(gateId, decision); return gate(gates.find(gateId));
+        if (gates.pendingChecks(gateId) > 0) throw new IllegalArgumentException("仍有未完成的Gate检查项");
+        if ("APPROVED".equals(decision) && gates.nonPassedChecks(gateId) > 0) throw new IllegalArgumentException("存在未通过的Gate检查项，不能批准Gate");
+        gates.updateStatus(gateId, decision); return gate(gates.find(gateId));
     }
     private GateRecord gate(GateRow row) { return new GateRecord(row.getId(), row.getProjectId(), row.getPhase(), row.getStatus(), row.getSubmittedByRef(), row.getDecisionOwnerRef(), gates.taskIds(row.getId()), gates.deliverableIds(row.getId()), row.getSubmittedAt(), gates.checks(row.getId()).stream().map(this::check).toList()); }
     private GateCheckRecord check(GateCheckRow row) { return new GateCheckRecord(row.getId(), row.getCode(), row.getTitle(), row.getStatus(), row.getReviewerRef(), row.getComment(), row.getEvidenceRefs()); }

@@ -31,4 +31,6 @@ public interface ProjectGateMapper {
     @Select("SELECT task_id FROM gate_scope_tasks WHERE gate_id=#{gateId}") List<Long> taskIds(@Param("gateId") long gateId);
     @Select("SELECT deliverable_id FROM gate_scope_deliverables WHERE gate_id=#{gateId}") List<Long> deliverableIds(@Param("gateId") long gateId);
     @Select("SELECT COUNT(*) FROM gate_checks WHERE gate_id=#{gateId} AND status='PENDING'") int pendingChecks(@Param("gateId") long gateId);
+    /** 查询未通过的Gate检查项，批准Gate时必须为零。 */
+    @Select("SELECT COUNT(*) FROM gate_checks WHERE gate_id=#{gateId} AND status <> 'PASSED'") int nonPassedChecks(@Param("gateId") long gateId);
 }
