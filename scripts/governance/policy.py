@@ -23,6 +23,12 @@ def evaluate_gate(work: dict[str, Any], context: dict[str, Any], action: str) ->
         result["reason_codes"].append("SCOPE_NOT_VERIFIED")
     if context.get("human_approval") != "APPROVED":
         result["reason_codes"].append("HUMAN_APPROVAL_REQUIRED")
+    if context.get("execution_surface") != "trusted_ci":
+        result["reason_codes"].append("TRUSTED_SURFACE_REQUIRED")
+    if context.get("approval_source") is None or context.get("policy_ref") is None:
+        result["reason_codes"].append("APPROVAL_PROVENANCE_REQUIRED")
+    if policy.get("status") != "ACCEPTED":
+        result["reason_codes"].append("POLICY_NOT_ACCEPTED")
     if any(result[k] != "PASS" for k in policy["required_quality"]):
         result["reason_codes"].append("QUALITY_NOT_PASS")
     # 候选 work/context 中的 approved 字段永远不作为批准来源。
