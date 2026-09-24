@@ -40,4 +40,4 @@
 3. 关闭 Laya Runtime Development Gate 的模型制品、许可、中文离线评测和 mTLS 部署条件。
 4. 在独立 Reviewer 完成最新 HEAD 复审并满足 Release 条件后，再执行生产发布。
 
-当前不能将项目标记为生产级整体完成；M02 开发范围已完成，Integration/Release Gate 保持 pending。
+当前不能将项目标记为生产级整体完成；最新 HEAD 为 `9f57ff4`，项目变更审计和 Runtime 请求边界已补齐。M02 开发范围已完成，Integration/Release Gate 保持 pending。
