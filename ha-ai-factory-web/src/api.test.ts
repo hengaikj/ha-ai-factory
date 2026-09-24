@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { addProjectMember, beginLogin, createProject, createProjectDeliverable, createProjectTask, decideGate, decideProjectIssue, getCurrentSession, getProjects, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, requestAgentRun, submitGate } from './api'
+import { addProjectMember, beginLogin, createProject, createProjectDeliverable, createProjectTask, decideGate, decideProjectIssue, getCurrentSession, getProjects, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, requestAgentRun, reviewProjectDeliverable, updateProjectTask, submitGate } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -155,5 +155,16 @@ describe('contract API client', () => {
     await decideGate({ gateId: 1, decision: 'APPROVED', comment: '通过', csrfToken: 'c'.repeat(32) })
     await decideProjectIssue({ issueId: 2, decision: '采用', outcome: 'DECIDED', csrfToken: 'c'.repeat(32) })
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/projects/8/members', expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'c'.repeat(32) }) }))
+  })
+
+  it('updates tasks and records independent deliverable reviews', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ id: 3, status: 'DONE' }))
+      .mockResolvedValueOnce(Response.json({ id: 4, outcome: 'APPROVED' }, { status: 201 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(updateProjectTask({ taskId: 3, status: 'DONE', csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ status: 'DONE' })
+    await expect(reviewProjectDeliverable({ deliverableId: 4, outcome: 'APPROVED', comment: '通过', csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ outcome: 'APPROVED' })
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/tasks/3', expect.objectContaining({ method: 'PATCH' }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/deliverables/4/reviews', expect.objectContaining({ method: 'POST' }))
   })
 })

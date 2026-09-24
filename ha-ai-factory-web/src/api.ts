@@ -228,6 +228,12 @@ export function createProject(input: { name: string; description?: string; csrfT
   })
 }
 
+/** 读取单个项目详情。 */
+export function getProject(projectId: number): Promise<Project> { return request(`/projects/${projectId}`) }
+
+/** 注销当前服务器端会话。 */
+export function logout(csrfToken: string): Promise<void> { return request('/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } }) }
+
 /** 读取当前项目的活动成员和角色，仅后端授权主体可见。 */
 export function getProjectMembers(projectId: number): Promise<ProjectMember[]> {
   return request(`/projects/${projectId}/members`)
@@ -267,6 +273,15 @@ export function createProjectTask(input: { projectId: number; title: string; des
   })
 }
 
+/** 读取单个任务详情。 */
+export function getProjectTask(taskId: number): Promise<ProjectTask> { return request(`/tasks/${taskId}`) }
+
+/** 更新任务状态或分配信息。 */
+export function updateProjectTask(input: { taskId: number; title?: string; description?: string; assigneeRef?: string; assigneeRole?: string; status?: string; csrfToken: string }): Promise<ProjectTask> {
+  const { taskId, csrfToken, ...body } = input
+  return request(`/tasks/${taskId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/merge-patch+json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
+}
+
 /** 读取项目登记的仓库引用型交付物。 */
 export function getProjectDeliverables(projectId: number, page = 1, pageSize = 20): Promise<DeliverablePage> {
   return request(`/projects/${projectId}/deliverables?page=${page}&pageSize=${pageSize}`)
@@ -278,6 +293,12 @@ export function createProjectDeliverable(input: { projectId: number; title: stri
   return request(`/projects/${projectId}/deliverables`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body),
   })
+}
+
+/** 提交交付物独立评审结论。 */
+export function reviewProjectDeliverable(input: { deliverableId: number; outcome: string; comment: string; evidenceRefs?: string[]; csrfToken: string }): Promise<unknown> {
+  const { deliverableId, csrfToken, ...body } = input
+  return request(`/deliverables/${deliverableId}/reviews`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
 }
 
 /** 记录Open Issue。 */
@@ -304,6 +325,9 @@ export function getProjectResources(projectId: number, phase?: string, kind?: st
 
 /** 读取项目Gate和检查项。 */
 export function getProjectGates(projectId: number): Promise<ProjectGate[]> { return request(`/projects/${projectId}/gates`) }
+
+/** 读取单个Gate详情。 */
+export function getProjectGate(gateId: number): Promise<ProjectGate> { return request(`/gates/${gateId}`) }
 
 /** 提交Gate范围供独立Reviewer评审。 */
 export function submitGate(input: { gateId: number; decisionOwnerRef: string; taskIds: number[]; deliverableIds: number[]; csrfToken: string }): Promise<ProjectGate> {
