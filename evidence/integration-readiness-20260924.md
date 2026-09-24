@@ -14,6 +14,7 @@
 | Agent Runtime | `python3 -m pytest -q` | 通过；27 项 |
 | Governance | `python3 -m unittest discover -s tests/governance -p 'test_*.py' -q` | 通过；16 项 |
 | 浏览器 smoke | 本地 Vite + in-app browser | 页面渲染、未登录/后端不可用状态可见，未泄露异常详情 |
+| 前后端匿名联调 | 临时 MySQL 8.0.36 + Spring Boot + `curl /projects` | Flyway V1–V8 成功，匿名请求返回 HTTP 401；测试容器和进程已清理 |
 
 ## 自动化配置
 
