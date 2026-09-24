@@ -17,6 +17,7 @@ import org.springframework.security.access.AccessDeniedException;
 /** 基于MyBatis mapper的MySQL持久化实现。 */
 @Repository
 public class MybatisProjectRepository implements ProjectRepository {
+    private static final List<String> LIFECYCLE_PHASES = List.of("DISCOVERY", "REQUIREMENT", "PRODUCT", "UX/UI", "DESIGN_HANDOFF", "CONTRACT", "DEVELOPMENT", "REVIEW", "INTEGRATION", "RELEASE");
     private static final Set<String> DELIVERABLE_REVIEW_OUTCOMES = Set.of("APPROVED", "RETURNED", "CLARIFICATION_REQUIRED");
     private static final Set<String> ISSUE_CREATE_STATUSES = Set.of("OPEN", "HUMAN_DECISION_REQUIRED");
     private static final Set<String> ISSUE_DECISION_STATUSES = Set.of("OPEN", "HUMAN_DECISION_REQUIRED", "DECIDED", "TRACKING", "CLOSED");
@@ -341,6 +342,10 @@ public class MybatisProjectRepository implements ProjectRepository {
     @Override @Transactional public ProjectRecord advanceProject(String principalRef, long projectId, String targetPhase) {
         ProjectRow row = projects.findActiveForPrincipal(principalRef, projectId); if (row == null) throw new AccessDeniedException("项目不存在或当前主体无权访问");
         if (memberships.countTaskManager(projectId, principalRef) == 0) throw new AccessDeniedException("需要项目编排角色");
+        int currentIndex = LIFECYCLE_PHASES.indexOf(row.getCurrentPhase());
+        if (currentIndex < 0 || currentIndex + 1 >= LIFECYCLE_PHASES.size() || !LIFECYCLE_PHASES.get(currentIndex + 1).equals(targetPhase)) {
+            throw new IllegalArgumentException("目标阶段必须是当前阶段的下一阶段");
+        }
         GateRow gate = gates.list(projectId).stream().filter(g -> g.getPhase().equals(row.getCurrentPhase())).findFirst().orElseThrow(() -> new IllegalArgumentException("当前阶段尚未建立Gate"));
         if (!"APPROVED".equals(gate.getStatus())) throw new IllegalArgumentException("当前阶段Gate尚未通过");
         projects.updatePhase(projectId, targetPhase); return toRecord(projects.findActiveForPrincipal(principalRef, projectId));
