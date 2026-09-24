@@ -1,7 +1,7 @@
 # HA AI Factory 整体功能差距审计
 
 日期：2026-09-24
-审计 HEAD：`eec75c3`
+审计 HEAD：`78b9cd1`
 依据：需求基线、PRD、M02 API Contract、Laya Runtime Contract、当前源代码与测试证据。
 
 ## 已实现并有证据
