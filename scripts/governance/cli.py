@@ -16,7 +16,11 @@ def main(argv: list[str] | None = None) -> int:
         data = json.load(input_file)
     if args.command == "route": result = route_task(data)
     elif args.command == "validate-work-item": result = {"valid": not validate_work_item(data), "errors": validate_work_item(data)}
-    elif args.command == "evaluate": result = evaluate_gate(data.get("work", {}), data.get("context", {}), data["action"])
+    elif args.command == "evaluate":
+        # 本地 CLI 明确标记为不可信执行面，不能凭输入字段伪装 trusted_ci。
+        context = dict(data.get("context", {}))
+        context["execution_surface"] = "local_cli"
+        result = evaluate_gate(data.get("work", {}), context, data["action"])
     else: result = verify_manifest(data)
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     if args.command == "validate-work-item" and not result["valid"]: return 2
