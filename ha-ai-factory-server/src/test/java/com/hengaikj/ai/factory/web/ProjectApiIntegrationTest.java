@@ -123,6 +123,11 @@ class ProjectApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].code").value("OI-TEST"));
+        jdbc.update("INSERT INTO project_resources(project_id,kind,title,phase,version,source_ref) VALUES(?,'RULE','需求规则','DISCOVERY','v1','process/rules.md')", projectId);
+        mvc.perform(get("/projects/{projectId}/resources?phase=DISCOVERY&kind=RULE", projectId).with(alice))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].sourceRef").value("process/rules.md"));
         String ownerRef = mvc.perform(get("/projects").with(alice))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(1)))

@@ -161,6 +161,14 @@ public class ProjectController {
         return IssueItem.from(repository.decideIssue(principal(user).principalRef(), issueId, body.decision(), body.outcome()));
     }
 
+    /** 查询项目模板和规则资源索引，内容托管与下载保持延期。 */
+    @GetMapping("/projects/{projectId}/resources")
+    public java.util.List<ResourceItem> resources(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId,
+                                                  @RequestParam(required = false) @Size(max = 64) String phase,
+                                                  @RequestParam(required = false) @Size(max = 16) String kind) {
+        return repository.listResources(principal(user).principalRef(), projectId, phase, kind).stream().map(ResourceItem::from).toList();
+    }
+
     /** 从Spring已验证的OIDC会话派生主体，不采信请求载荷中的操作者字段。 */
     private ProjectRepository.PrincipalRecord principal(OidcUser user) {
         if (user == null || user.getIssuer() == null || user.getSubject() == null || user.getSubject().isBlank()) {
@@ -219,6 +227,9 @@ public class ProjectController {
     public record IssueDecision(@NotBlank @Size(max = 4000) String decision, @NotBlank @Size(max = 40) String outcome) {}
     public record IssueItem(long id, long projectId, String code, String title, String description, String impact, String decisionRole, String status, String decision, Instant createdAt, Instant decidedAt) {
         static IssueItem from(ProjectRepository.IssueRecord v) { return new IssueItem(v.id(), v.projectId(), v.code(), v.title(), v.description(), v.impact(), v.decisionRole(), v.status(), v.decision(), v.createdAt(), v.decidedAt()); }
+    }
+    public record ResourceItem(long id, String kind, String title, String phase, String version, String sourceRef, String sourceStatus, Instant createdAt) {
+        static ResourceItem from(ProjectRepository.ResourceRecord v) { return new ResourceItem(v.id(), v.kind(), v.title(), v.phase(), v.version(), v.sourceRef(), v.sourceStatus(), v.createdAt()); }
     }
 
     public record ProjectItem(long id, String name, String description, Map<String, String> techStack,

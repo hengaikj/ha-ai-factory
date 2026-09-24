@@ -23,16 +23,18 @@ public class MybatisProjectRepository implements ProjectRepository {
     private final ProjectTaskMapper tasks;
     private final ProjectDeliverableMapper deliverables;
     private final ProjectIssueMapper issues;
+    private final ProjectResourceMapper resources;
     private final ObjectMapper json;
 
     public MybatisProjectRepository(PrincipalMapper principals, ProjectMapper projects,
-                                    ProjectMembershipMapper memberships, ProjectTaskMapper tasks, ProjectDeliverableMapper deliverables, ProjectIssueMapper issues, ObjectMapper json) {
+                                    ProjectMembershipMapper memberships, ProjectTaskMapper tasks, ProjectDeliverableMapper deliverables, ProjectIssueMapper issues, ProjectResourceMapper resources, ObjectMapper json) {
         this.principals = principals;
         this.projects = projects;
         this.memberships = memberships;
         this.tasks = tasks;
         this.deliverables = deliverables;
         this.issues = issues;
+        this.resources = resources;
         this.json = json;
     }
 
@@ -234,6 +236,13 @@ public class MybatisProjectRepository implements ProjectRepository {
     }
 
     private IssueRecord issue(IssueRow row) { return new IssueRecord(row.getId(), row.getProjectId(), row.getCode(), row.getTitle(), row.getDescription(), row.getImpact(), row.getDecisionRole(), row.getStatus(), row.getDecision(), row.getCreatedAt(), row.getDecidedAt()); }
+
+    /** 查询项目采用的模板和规则索引，不读取仓库文件内容。 */
+    @Override
+    public List<ResourceRecord> listResources(String principalRef, long projectId, String phase, String kind) {
+        if (memberships.countActiveMember(projectId, principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
+        return resources.list(projectId, phase, kind).stream().map(r -> new ResourceRecord(r.getId(), r.getKind(), r.getTitle(), r.getPhase(), r.getVersion(), r.getSourceRef(), r.getSourceStatus(), r.getCreatedAt())).toList();
+    }
 
     private TaskRecord task(TaskRow row) { return new TaskRecord(row.getId(), row.getProjectId(), row.getTitle(), row.getDescription(), row.getPhase(), row.getAssigneeRef(), row.getAssigneeRole(), row.getStatus(), row.getCreatedAt(), row.getUpdatedAt()); }
 
