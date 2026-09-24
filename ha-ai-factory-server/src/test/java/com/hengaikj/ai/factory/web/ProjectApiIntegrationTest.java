@@ -144,7 +144,6 @@ class ProjectApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].sourceRef").value("process/rules.md"));
-        jdbc.update("INSERT INTO project_gates(project_id,phase) VALUES(?,'DISCOVERY')", projectId);
         var gateId = jdbc.queryForObject("SELECT id FROM project_gates WHERE project_id=? AND phase='DISCOVERY'", Long.class, projectId);
         jdbc.update("INSERT INTO gate_checks(gate_id,code,title) VALUES(?,'REQ','需求检查')", gateId);
         var checkId = jdbc.queryForObject("SELECT id FROM gate_checks WHERE gate_id=? AND code='REQ'", Long.class, gateId);
@@ -196,6 +195,10 @@ class ProjectApiIntegrationTest {
         mvc.perform(post("/projects/{projectId}/stage-transitions", projectId).with(alice).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"targetPhase\":\"REQUIREMENT\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.currentPhase").value("REQUIREMENT"));
+        mvc.perform(get("/projects/{projectId}/gates", projectId).with(alice))
+                .andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[1].phase").value("REQUIREMENT"))
+                .andExpect(jsonPath("$[1].status").value("PENDING"));
         mvc.perform(get("/projects").with(bob))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(1)))

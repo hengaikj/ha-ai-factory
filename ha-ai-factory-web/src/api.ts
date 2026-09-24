@@ -115,6 +115,9 @@ export interface ProjectGate {
   taskIds: number[]
   deliverableIds: number[]
   submittedAt?: string | null
+  reviewerRef?: string | null
+  decisionComment?: string | null
+  decidedAt?: string | null
   checks: GateCheck[]
 }
 

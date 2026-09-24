@@ -79,6 +79,10 @@ public class MybatisProjectRepository implements ProjectRepository {
         projects.insert(row);
         memberships.insertActiveMember(row.getId(), principalRef);
         memberships.insertOwnerRole(row.getId(), principalRef);
+        GateRow initialGate = new GateRow();
+        initialGate.setProjectId(row.getId());
+        initialGate.setPhase("DISCOVERY");
+        gates.ensure(initialGate);
         AuditEventRow event = new AuditEventRow(); event.setProjectId(row.getId()); event.setObjectType("PROJECT"); event.setObjectId(row.getId()); event.setAction("PROJECT_CREATED"); event.setAfterState("{\"name\":\"" + name.replace("\"", "\\\"") + "\"}"); event.setActorRef(principalRef); auditEvents.insert(event);
         var now = java.time.Instant.now();
         return new ProjectRecord(row.getId(), name, description, techStack, principalRef, "DISCOVERY", "PENDING", 0, now, now);
@@ -360,7 +364,12 @@ public class MybatisProjectRepository implements ProjectRepository {
         }
         GateRow gate = gates.list(projectId).stream().filter(g -> g.getPhase().equals(row.getCurrentPhase())).findFirst().orElseThrow(() -> new IllegalArgumentException("当前阶段尚未建立Gate"));
         if (!"APPROVED".equals(gate.getStatus())) throw new IllegalArgumentException("当前阶段Gate尚未通过");
-        projects.updatePhase(projectId, targetPhase); return toRecord(projects.findActiveForPrincipal(principalRef, projectId));
+        projects.updatePhase(projectId, targetPhase);
+        GateRow nextGate = new GateRow();
+        nextGate.setProjectId(projectId);
+        nextGate.setPhase(targetPhase);
+        gates.ensure(nextGate);
+        return toRecord(projects.findActiveForPrincipal(principalRef, projectId));
     }
 
     private TaskRecord task(TaskRow row) { return new TaskRecord(row.getId(), row.getProjectId(), row.getTitle(), row.getDescription(), row.getPhase(), row.getAssigneeRef(), row.getAssigneeRole(), row.getStatus(), row.getCreatedAt(), row.getUpdatedAt()); }
