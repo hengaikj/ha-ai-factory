@@ -141,6 +141,26 @@ public class ProjectController {
         return DeliverableReviewItem.from(repository.reviewDeliverable(p.principalRef(), deliverableId, body.outcome(), body.comment(), body.evidenceRefs() == null ? "[]" : body.evidenceRefs().toString()));
     }
 
+    /** 查询项目待决事项。 */
+    @GetMapping("/projects/{projectId}/issues")
+    public java.util.List<IssueItem> issues(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId) {
+        return repository.listIssues(principal(user).principalRef(), projectId).stream().map(IssueItem::from).toList();
+    }
+
+    /** 创建Open Issue，状态仅允许开放或需要人工决策。 */
+    @PostMapping("/projects/{projectId}/issues")
+    @ResponseStatus(HttpStatus.CREATED)
+    public IssueItem createIssue(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId, @Valid @RequestBody IssueCreate body) {
+        var p = principal(user);
+        return IssueItem.from(repository.createIssue(p.principalRef(), projectId, body.code(), body.title().trim(), body.description(), body.impact(), body.decisionRole(), body.status() == null ? "OPEN" : body.status()));
+    }
+
+    /** 记录人工决策，操作者身份由服务端会话推导。 */
+    @PostMapping("/issues/{issueId}/decisions")
+    public IssueItem decideIssue(@AuthenticationPrincipal OidcUser user, @PathVariable long issueId, @Valid @RequestBody IssueDecision body) {
+        return IssueItem.from(repository.decideIssue(principal(user).principalRef(), issueId, body.decision(), body.outcome()));
+    }
+
     /** 从Spring已验证的OIDC会话派生主体，不采信请求载荷中的操作者字段。 */
     private ProjectRepository.PrincipalRecord principal(OidcUser user) {
         if (user == null || user.getIssuer() == null || user.getSubject() == null || user.getSubject().isBlank()) {
@@ -193,6 +213,12 @@ public class ProjectController {
     }
     public record DeliverableReviewItem(long id, UUID reviewerRef, String outcome, String comment, String evidenceRefs, Instant createdAt) {
         static DeliverableReviewItem from(ProjectRepository.DeliverableReviewRecord v) { return new DeliverableReviewItem(v.id(), UUID.fromString(v.reviewerRef()), v.outcome(), v.comment(), v.evidenceRefs(), v.createdAt()); }
+    }
+    public record IssueCreate(@Size(max = 64) String code, @NotBlank @Size(max = 256) String title, @NotBlank @Size(max = 8000) String description,
+                              @NotBlank @Size(max = 4000) String impact, @NotBlank @Size(max = 64) String decisionRole, @Size(max = 40) String status) {}
+    public record IssueDecision(@NotBlank @Size(max = 4000) String decision, @NotBlank @Size(max = 40) String outcome) {}
+    public record IssueItem(long id, long projectId, String code, String title, String description, String impact, String decisionRole, String status, String decision, Instant createdAt, Instant decidedAt) {
+        static IssueItem from(ProjectRepository.IssueRecord v) { return new IssueItem(v.id(), v.projectId(), v.code(), v.title(), v.description(), v.impact(), v.decisionRole(), v.status(), v.decision(), v.createdAt(), v.decidedAt()); }
     }
 
     public record ProjectItem(long id, String name, String description, Map<String, String> techStack,

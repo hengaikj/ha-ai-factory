@@ -22,6 +22,9 @@ public interface ProjectRepository {
     DeliverablePage listDeliverables(String principalRef, long projectId, int page, int pageSize);
     DeliverableRecord createDeliverable(String principalRef, long projectId, Long taskId, String title, String phase, String version, String sourceRef);
     DeliverableReviewRecord reviewDeliverable(String principalRef, long deliverableId, String outcome, String comment, String evidenceRefs);
+    List<IssueRecord> listIssues(String principalRef, long projectId);
+    IssueRecord createIssue(String principalRef, long projectId, String code, String title, String description, String impact, String decisionRole, String status);
+    IssueRecord decideIssue(String principalRef, long issueId, String decision, String status);
 
     record PrincipalRecord(String principalRef, String displayName) {}
     record ProjectRecord(long id, String name, String description, Map<String, String> techStack,
@@ -34,4 +37,5 @@ public interface ProjectRepository {
     record DeliverableRecord(long id, long projectId, Long taskId, String title, String phase, String version, String sourceRef, String reviewStatus, Instant createdAt) {}
     record DeliverablePage(List<DeliverableRecord> items, int page, int pageSize, long total) {}
     record DeliverableReviewRecord(long id, String reviewerRef, String outcome, String comment, String evidenceRefs, Instant createdAt) {}
+    record IssueRecord(long id, long projectId, String code, String title, String description, String impact, String decisionRole, String status, String decision, Instant createdAt, Instant decidedAt) {}
 }

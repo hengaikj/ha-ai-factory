@@ -114,12 +114,21 @@ class ProjectApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(1)))
                 .andExpect(jsonPath("$.items[0].sourceRef").value("docs/requirement/requirement-baseline.md"));
+        mvc.perform(post("/projects/{projectId}/issues", projectId).with(alice).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"OI-TEST\",\"title\":\"需要决策\",\"description\":\"说明\",\"impact\":\"影响\",\"decisionRole\":\"Owner\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("OPEN"));
+        mvc.perform(get("/projects/{projectId}/issues", projectId).with(alice))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].code").value("OI-TEST"));
         String ownerRef = mvc.perform(get("/projects").with(alice))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(1)))
                 .andExpect(jsonPath("$.items[0].name").value("Alice project"))
                 .andExpect(jsonPath("$.items[0].gateStatus").value("PENDING"))
-                .andExpect(jsonPath("$.items[0].openIssueCount").value(0))
+                .andExpect(jsonPath("$.items[0].openIssueCount").value(1))
                 .andExpect(jsonPath("$.page").value(1))
                 .andExpect(jsonPath("$.pageSize").value(20))
                 .andExpect(jsonPath("$.total").value(1))
@@ -130,7 +139,7 @@ class ProjectApiIntegrationTest {
         mvc.perform(get("/projects").with(alice))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].gateStatus").value("APPROVED"))
-                .andExpect(jsonPath("$.items[0].openIssueCount").value(1));
+                .andExpect(jsonPath("$.items[0].openIssueCount").value(2));
         var bob = SecurityMockMvcRequestPostProcessors.oidcLogin()
                 .idToken(token -> token.issuer("https://idp.example").subject("bob"));
         mvc.perform(get("/projects").with(bob))

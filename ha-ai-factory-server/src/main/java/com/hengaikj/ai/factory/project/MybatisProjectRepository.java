@@ -22,15 +22,17 @@ public class MybatisProjectRepository implements ProjectRepository {
     private final ProjectMembershipMapper memberships;
     private final ProjectTaskMapper tasks;
     private final ProjectDeliverableMapper deliverables;
+    private final ProjectIssueMapper issues;
     private final ObjectMapper json;
 
     public MybatisProjectRepository(PrincipalMapper principals, ProjectMapper projects,
-                                    ProjectMembershipMapper memberships, ProjectTaskMapper tasks, ProjectDeliverableMapper deliverables, ObjectMapper json) {
+                                    ProjectMembershipMapper memberships, ProjectTaskMapper tasks, ProjectDeliverableMapper deliverables, ProjectIssueMapper issues, ObjectMapper json) {
         this.principals = principals;
         this.projects = projects;
         this.memberships = memberships;
         this.tasks = tasks;
         this.deliverables = deliverables;
+        this.issues = issues;
         this.json = json;
     }
 
@@ -206,6 +208,32 @@ public class MybatisProjectRepository implements ProjectRepository {
     }
 
     private DeliverableRecord deliverable(DeliverableRow row) { return new DeliverableRecord(row.getId(), row.getProjectId(), row.getTaskId(), row.getTitle(), row.getPhase(), row.getVersion(), row.getSourceRef(), row.getReviewStatus(), row.getCreatedAt()); }
+
+    /** 查询项目Open Issue，事项内容仅对活动项目成员可见。 */
+    @Override
+    public List<IssueRecord> listIssues(String principalRef, long projectId) {
+        if (memberships.countActiveMember(projectId, principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
+        return issues.list(projectId).stream().map(this::issue).toList();
+    }
+
+    /** 创建项目待决事项。 */
+    @Override
+    @Transactional
+    public IssueRecord createIssue(String principalRef, long projectId, String code, String title, String description, String impact, String decisionRole, String status) {
+        if (memberships.countTaskManager(projectId, principalRef) == 0) throw new AccessDeniedException("需要Owner、Project Admin或Orchestrator角色");
+        IssueRow row = new IssueRow(); row.setProjectId(projectId); row.setCode(code); row.setTitle(title); row.setDescription(description); row.setImpact(impact); row.setDecisionRole(decisionRole); row.setStatus(status == null ? "OPEN" : status); row.setCreatedByRef(principalRef); issues.insert(row); return issue(issues.find(row.getId()));
+    }
+
+    /** 记录人工决策并推进事项状态。 */
+    @Override
+    @Transactional
+    public IssueRecord decideIssue(String principalRef, long issueId, String decision, String status) {
+        IssueRow row = issues.find(issueId); if (row == null) throw new IllegalArgumentException("事项不存在");
+        if (memberships.countActiveMember(row.getProjectId(), principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
+        row.setDecision(decision); row.setStatus(status); row.setDecidedByRef(principalRef); issues.decide(row); return issue(issues.find(issueId));
+    }
+
+    private IssueRecord issue(IssueRow row) { return new IssueRecord(row.getId(), row.getProjectId(), row.getCode(), row.getTitle(), row.getDescription(), row.getImpact(), row.getDecisionRole(), row.getStatus(), row.getDecision(), row.getCreatedAt(), row.getDecidedAt()); }
 
     private TaskRecord task(TaskRow row) { return new TaskRecord(row.getId(), row.getProjectId(), row.getTitle(), row.getDescription(), row.getPhase(), row.getAssigneeRef(), row.getAssigneeRole(), row.getStatus(), row.getCreatedAt(), row.getUpdatedAt()); }
 
