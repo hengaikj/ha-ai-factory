@@ -29,6 +29,9 @@ const taskError = ref('')
 const taskTitle = ref('')
 const taskPhase = ref('DISCOVERY')
 const taskDescription = ref('')
+const taskAssigneeRef = ref('')
+const taskAssigneeRole = ref('ENGINEER')
+const taskMembers = ref<ProjectMember[]>([])
 const taskCreating = ref(false)
 const taskUpdating = ref(false)
 const workspaceProject = ref<Project | null>(null)
@@ -202,7 +205,7 @@ async function openTasks(project: Project) {
   tasks.value = []
   taskError.value = ''
   taskLoading.value = true
-  try { tasks.value = (await getProjectTasks(project.id)).items }
+  try { const [taskPage, projectMembers] = await Promise.all([getProjectTasks(project.id), getProjectMembers(project.id)]); tasks.value = taskPage.items; taskMembers.value = projectMembers }
   catch (error) { taskError.value = error instanceof Error ? error.message : '任务加载失败，请稍后重试。' }
   finally { taskLoading.value = false }
 }
@@ -214,9 +217,9 @@ async function submitTask() {
   taskCreating.value = true
   taskError.value = ''
   try {
-    const task = await createProjectTask({ projectId: taskProject.value.id, title: taskTitle.value.trim(), phase: taskPhase.value.trim(), ...(taskDescription.value.trim() ? { description: taskDescription.value.trim() } : {}), csrfToken: session.value.csrfToken })
+    const task = await createProjectTask({ projectId: taskProject.value.id, title: taskTitle.value.trim(), phase: taskPhase.value.trim(), ...(taskDescription.value.trim() ? { description: taskDescription.value.trim() } : {}), ...(taskAssigneeRef.value ? { assigneeRef: taskAssigneeRef.value, assigneeRole: taskAssigneeRole.value } : {}), csrfToken: session.value.csrfToken })
     tasks.value = [task, ...tasks.value]
-    taskTitle.value = ''; taskDescription.value = ''
+    taskTitle.value = ''; taskDescription.value = ''; taskAssigneeRef.value = ''
   } catch (error) { taskError.value = error instanceof Error ? error.message : '任务创建失败，请稍后重试。' }
   finally { taskCreating.value = false }
 }
@@ -469,6 +472,8 @@ onMounted(loadProjects)
             <input v-model="taskTitle" maxlength="200" required placeholder="任务标题" aria-label="任务标题">
             <input v-model="taskPhase" maxlength="64" required placeholder="阶段" aria-label="任务阶段">
             <input v-model="taskDescription" maxlength="2000" placeholder="任务说明（选填）" aria-label="任务说明">
+            <select v-model="taskAssigneeRef" aria-label="责任主体"><option value="">不指定责任主体</option><option v-for="member in taskMembers" :key="member.principalRef" :value="member.principalRef">{{ member.displayName }}（{{ member.roles.join("、") }}）</option></select>
+            <select v-if="taskAssigneeRef" v-model="taskAssigneeRole" aria-label="责任角色"><option v-for="role in (taskMembers.find(member => member.principalRef === taskAssigneeRef)?.roles ?? [])" :key="role" :value="role">{{ role }}</option></select>
             <button class="primary-button" type="submit" :disabled="taskCreating">{{ taskCreating ? '创建中…' : '新建任务' }}</button>
           </form>
           <p v-if="taskError" class="form-error" role="alert">{{ taskError }}</p>
