@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { addProjectMember, beginLogin, createProject, createProjectDeliverable, createProjectTask, decideGate, decideProjectIssue, getCurrentSession, getProjects, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, requestAgentRun, reviewProjectDeliverable, updateProject, updateProjectTask, submitGate } from './api'
+import { addProjectMember, beginLogin, createProject, createProjectDeliverable, createProjectTask, decideGate, decideProjectIssue, getCurrentSession, getProjects, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, logout, requestAgentRun, reviewProjectDeliverable, updateProject, updateProjectTask, submitGate } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -173,5 +173,12 @@ describe('contract API client', () => {
     vi.stubGlobal('fetch', fetchMock)
     await expect(updateProject({ projectId: 8, name: '新名称', csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ name: '新名称' })
     expect(fetchMock).toHaveBeenCalledWith('/projects/8', expect.objectContaining({ method: 'PATCH', headers: expect.objectContaining({ 'Content-Type': 'application/merge-patch+json' }) }))
+  })
+
+  it('logs out through the server session endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(logout('c'.repeat(32))).resolves.toBeUndefined()
+    expect(fetchMock).toHaveBeenCalledWith('/auth/logout', expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'c'.repeat(32) }) }))
   })
 })

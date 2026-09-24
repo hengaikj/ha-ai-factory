@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ApiError, addProjectMember, advanceProjectStage, beginLogin, createProject, createProjectDeliverable, createProjectIssue, createProjectTask, decideGate, decideGateCheck, decideProjectIssue, getCurrentSession, getProjects, getProjectMembers, getProjectTasks, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectResources, getRuntimeConfigStatus, removeProjectMember, replaceProjectMemberRoles, reviewProjectDeliverable, updateProject, updateProjectTask, type ActivityPage, type CurrentSession, type Deliverable, type Project, type ProjectGate, type ProjectMember, type ProjectResource, type ProjectTask, type OpenIssue, type RuntimeConfigStatus } from './api'
+import { ApiError, addProjectMember, advanceProjectStage, beginLogin, createProject, createProjectDeliverable, createProjectIssue, createProjectTask, decideGate, decideGateCheck, decideProjectIssue, getCurrentSession, getProjects, getProjectMembers, getProjectTasks, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectResources, getRuntimeConfigStatus, logout, removeProjectMember, replaceProjectMemberRoles, reviewProjectDeliverable, updateProject, updateProjectTask, type ActivityPage, type CurrentSession, type Deliverable, type Project, type ProjectGate, type ProjectMember, type ProjectResource, type ProjectTask, type OpenIssue, type RuntimeConfigStatus } from './api'
 
 type ViewState = 'loading' | 'unauthenticated' | 'ready' | 'error'
 const session = ref<CurrentSession | null>(null)
@@ -47,6 +47,7 @@ const issueTitle = ref(''); const issueDescription = ref(''); const issueImpact 
 const gateWorking = ref(false)
 const stageWorking = ref(false)
 const projectUpdating = ref(false)
+const loggingOut = ref(false)
 const projectName = ref('')
 const projectDescription = ref('')
 const loginError = new URLSearchParams(window.location.search).get('authError')
@@ -140,6 +141,15 @@ async function startLogin() {
     loginErrorMessage.value = error instanceof Error ? error.message : '登录暂不可用，请联系管理员检查配置。'
     loginStarting.value = false
   }
+}
+
+/** 使用服务器端注销端点销毁会话，再回到未登录状态。 */
+async function signOut() {
+  if (!session.value || loggingOut.value) return
+  loggingOut.value = true
+  try { await logout(session.value.csrfToken); session.value = null; projects.value = []; viewState.value = 'unauthenticated' }
+  catch (error) { errorMessage.value = error instanceof Error ? error.message : '注销失败，请稍后重试。' }
+  finally { loggingOut.value = false }
 }
 
 function formatDate(value: string) {
@@ -327,7 +337,7 @@ onMounted(loadProjects)
         <div class="build-note"><span class="pulse"></span><span>项目工作台<br /><small>服务端授权数据</small></span></div>
         <div v-if="session" class="user-placeholder" aria-label="当前登录用户">
           <span class="avatar">{{ session.displayName.slice(0, 1) }}</span>
-          <span><strong>{{ session.displayName }}</strong><small>已通过企业身份认证</small></span>
+          <span><strong>{{ session.displayName }}</strong><small>已通过企业身份认证</small></span><button class="secondary-button" type="button" :disabled="loggingOut" @click="signOut">{{ loggingOut ? '注销中…' : '注销' }}</button>
         </div>
         <div v-else class="user-placeholder"><span class="avatar">?</span><span><strong>未登录</strong><small>请使用企业账号登录</small></span></div>
       </div>
