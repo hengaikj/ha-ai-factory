@@ -70,6 +70,31 @@ export interface DeliverablePage {
   total: number
 }
 
+export interface OpenIssue {
+  id: number
+  projectId: number
+  code?: string | null
+  title: string
+  description: string
+  impact: string
+  decisionRole: string
+  status: string
+  decision?: string | null
+  createdAt: string
+  decidedAt?: string | null
+}
+
+export interface ProjectResource {
+  id: number
+  kind: 'TEMPLATE' | 'RULE'
+  title: string
+  phase: string
+  version: string
+  sourceRef: string
+  sourceStatus: string
+  createdAt: string
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -197,4 +222,20 @@ export function createProjectDeliverable(input: { projectId: number; title: stri
   return request(`/projects/${projectId}/deliverables`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body),
   })
+}
+
+/** 读取项目Open Issue。 */
+export function getProjectIssues(projectId: number): Promise<OpenIssue[]> { return request(`/projects/${projectId}/issues`) }
+
+/** 创建项目Open Issue。 */
+export function createProjectIssue(input: { projectId: number; title: string; description: string; impact: string; decisionRole: string; code?: string; status?: string; csrfToken: string }): Promise<OpenIssue> {
+  const { projectId, csrfToken, ...body } = input
+  return request(`/projects/${projectId}/issues`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
+}
+
+/** 读取模板与规则资源索引，客户端不请求文件内容。 */
+export function getProjectResources(projectId: number, phase?: string, kind?: string): Promise<ProjectResource[]> {
+  const params = new URLSearchParams(); if (phase) params.set('phase', phase); if (kind) params.set('kind', kind)
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  return request(`/projects/${projectId}/resources${suffix}`)
 }

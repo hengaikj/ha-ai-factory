@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { beginLogin, createProject, createProjectDeliverable, createProjectTask, getCurrentSession, getProjects, getProjectDeliverables, getProjectMembers, getProjectTasks } from './api'
+import { beginLogin, createProject, createProjectDeliverable, createProjectTask, getCurrentSession, getProjects, getProjectDeliverables, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -101,5 +101,16 @@ describe('contract API client', () => {
     await expect(createProjectDeliverable({ projectId: 8, title: '基线', phase: 'DISCOVERY', version: 'v1', sourceRef: 'docs/baseline.md', csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ id: 4 })
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/projects/8/deliverables?page=1&pageSize=20', expect.objectContaining({ credentials: 'include' }))
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/projects/8/deliverables', expect.objectContaining({ method: 'POST', body: expect.stringContaining('docs/baseline.md') }))
+  })
+
+  it('loads issues and resource indexes within project scope', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json([]))
+      .mockResolvedValueOnce(Response.json([]))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(getProjectIssues(8)).resolves.toEqual([])
+    await expect(getProjectResources(8, 'DISCOVERY', 'RULE')).resolves.toEqual([])
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/projects/8/issues', expect.objectContaining({ credentials: 'include' }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/projects/8/resources?phase=DISCOVERY&kind=RULE', expect.objectContaining({ credentials: 'include' }))
   })
 })
