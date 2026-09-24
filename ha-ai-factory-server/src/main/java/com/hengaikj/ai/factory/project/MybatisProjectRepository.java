@@ -201,6 +201,7 @@ public class MybatisProjectRepository implements ProjectRepository {
     public TaskRecord updateTask(String principalRef, long taskId, String title, String description, String assigneeRef, String assigneeRole, String status) {
         TaskRow row = tasks.find(taskId); if (row == null) throw new IllegalArgumentException("任务不存在");
         if (memberships.countTaskManager(row.getProjectId(), principalRef) == 0) throw new AccessDeniedException("需要Owner、Project Admin或Orchestrator角色");
+        if (status != null && !Set.of("NOT_STARTED", "IN_PROGRESS", "READY_FOR_REVIEW", "COMPLETED", "RETURNED", "BLOCKED", "HUMAN_DECISION_REQUIRED").contains(status)) throw new IllegalArgumentException("任务状态无效");
         row.setTitle(title == null ? row.getTitle() : title); row.setDescription(description == null ? row.getDescription() : description); row.setAssigneeRef(assigneeRef == null ? row.getAssigneeRef() : assigneeRef); row.setAssigneeRole(assigneeRole == null ? row.getAssigneeRole() : assigneeRole); row.setStatus(status == null ? row.getStatus() : status); tasks.update(row);
         return task(tasks.find(taskId));
     }

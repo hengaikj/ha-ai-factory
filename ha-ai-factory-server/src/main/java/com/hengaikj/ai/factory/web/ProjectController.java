@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
@@ -33,6 +34,13 @@ public class ProjectController {
     private final ProjectRepository repository;
 
     public ProjectController(ProjectRepository repository) { this.repository = repository; }
+
+    /** 将仓储层输入校验失败映射为稳定的契约错误，不泄露堆栈或内部 SQL 信息。 */
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, Object> invalidRequest(IllegalArgumentException ignored) {
+        return Map.of("type", "about:blank", "title", "请求参数无效", "status", HttpStatus.BAD_REQUEST.value(), "code", "VALIDATION_FAILED");
+    }
 
     /** 项目列表必须由服务端主体引用过滤，只显示有效成员关系。 */
     @GetMapping("/projects")

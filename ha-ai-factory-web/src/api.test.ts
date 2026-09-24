@@ -159,10 +159,10 @@ describe('contract API client', () => {
 
   it('updates tasks and records independent deliverable reviews', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(Response.json({ id: 3, status: 'DONE' }))
+      .mockResolvedValueOnce(Response.json({ id: 3, status: 'COMPLETED' }))
       .mockResolvedValueOnce(Response.json({ id: 4, outcome: 'APPROVED' }, { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
-    await expect(updateProjectTask({ taskId: 3, status: 'DONE', csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ status: 'DONE' })
+    await expect(updateProjectTask({ taskId: 3, status: 'COMPLETED', csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ status: 'COMPLETED' })
     await expect(reviewProjectDeliverable({ deliverableId: 4, outcome: 'APPROVED', comment: '通过', csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ outcome: 'APPROVED' })
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/tasks/3', expect.objectContaining({ method: 'PATCH' }))
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/deliverables/4/reviews', expect.objectContaining({ method: 'POST' }))

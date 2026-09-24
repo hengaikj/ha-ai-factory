@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -112,6 +113,12 @@ class ProjectApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(1)))
                 .andExpect(jsonPath("$.items[0].phase").value("DISCOVERY"));
+        mvc.perform(patch("/tasks/1").with(alice).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType("application/merge-patch+json").content("{\"status\":\"COMPLETED\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("COMPLETED"));
+        mvc.perform(patch("/tasks/1").with(alice).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType("application/merge-patch+json").content("{\"status\":\"DONE\"}"))
+                .andExpect(status().isBadRequest());
         mvc.perform(post("/projects/{projectId}/deliverables", projectId).with(alice).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"需求基线\",\"phase\":\"DISCOVERY\",\"version\":\"v1\",\"sourceRef\":\"docs/requirement/requirement-baseline.md\"}"))

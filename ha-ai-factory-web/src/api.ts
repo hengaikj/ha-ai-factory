@@ -39,7 +39,7 @@ export interface ProjectTask {
   phase: string
   assigneeRef?: string | null
   assigneeRole?: string | null
-  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'READY_FOR_REVIEW' | 'COMPLETED' | 'RETURNED' | 'BLOCKED' | 'HUMAN_DECISION_REQUIRED'
   createdAt: string
   updatedAt: string
 }
