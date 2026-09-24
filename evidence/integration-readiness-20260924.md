@@ -1,0 +1,32 @@
+# Integration Readiness Evidence
+
+日期：2026-09-24  
+分支：`feature/M01-foundation`  
+阶段：`Integration`  
+对应状态：`.agent/state.yaml`
+
+## 本地验证结果
+
+| 范围 | 命令 | 结果 |
+| --- | --- | --- |
+| Java 后端与 MySQL/Flyway | `mvn -q test` | 通过；36 项，0 失败，0 错误；Testcontainers MySQL 执行 V1–V8 |
+| Vue 前端 | `pnpm test -- --run && pnpm build` | 通过；20 项测试，生产构建成功 |
+| Agent Runtime | `python3 -m pytest -q` | 通过；27 项 |
+| Governance | `python3 -m unittest discover -s tests/governance -p 'test_*.py' -q` | 通过；16 项 |
+| 浏览器 smoke | 本地 Vite + in-app browser | 页面渲染、未登录/后端不可用状态可见，未泄露异常详情 |
+
+## 自动化配置
+
+`.github/workflows/ha-governance.yml` 已包含 Governance、Backend、Frontend 和 Agent Runtime 四个验证 job，并在 Pull Request 与目标分支 Push 时运行。
+
+## 尚未满足的 Integration / Release 条件
+
+- 最新实现 HEAD 尚未完成独立 Reviewer 最终复审。
+- 真实 OIDC 测试 IdP 和认证后的浏览器 E2E 尚未配置。
+- GitHub 分支保护和 required checks 尚未由仓库管理员启用并提供证据。
+- Laya 生产模型 revision、权重摘要、许可证审查、中文离线评测和 mTLS 部署尚未完成。
+- M02 的真实 Runtime、工具、外部副作用、Git/CI 产品集成和文件托管仍按 Contract 保持关闭或延期。
+
+## 结论
+
+M02 已批准范围具备可重复的本地集成验证基线；Integration Gate 仍为 `PENDING`，不能据此宣称生产发布或整体功能全部完成。
