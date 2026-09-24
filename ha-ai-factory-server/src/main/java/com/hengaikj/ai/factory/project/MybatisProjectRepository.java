@@ -198,6 +198,7 @@ public class MybatisProjectRepository implements ProjectRepository {
     @Transactional
     public TaskRecord createTask(String principalRef, long projectId, String title, String description, String phase, String assigneeRef, String assigneeRole) {
         if (memberships.countTaskManager(projectId, principalRef) == 0) throw new AccessDeniedException("需要Owner、Project Admin或Orchestrator角色");
+        if (assigneeRef != null && memberships.countActiveMember(projectId, assigneeRef) == 0) throw new IllegalArgumentException("任务责任人不是当前项目活动成员");
         TaskRow row = new TaskRow(); row.setProjectId(projectId); row.setTitle(title); row.setDescription(description); row.setPhase(phase); row.setAssigneeRef(assigneeRef); row.setAssigneeRole(assigneeRole); row.setCreatedByRef(principalRef); tasks.insert(row);
         audit(projectId, "TASK", row.getId(), "TASK_CREATED", null, "{\"status\":\"NOT_STARTED\"}", principalRef, null, null);
         return task(tasks.find(row.getId()));
@@ -217,6 +218,7 @@ public class MybatisProjectRepository implements ProjectRepository {
     public TaskRecord updateTask(String principalRef, long taskId, String title, String description, String assigneeRef, String assigneeRole, String status) {
         TaskRow row = tasks.find(taskId); if (row == null) throw new IllegalArgumentException("任务不存在");
         if (memberships.countTaskManager(row.getProjectId(), principalRef) == 0) throw new AccessDeniedException("需要Owner、Project Admin或Orchestrator角色");
+        if (assigneeRef != null && memberships.countActiveMember(row.getProjectId(), assigneeRef) == 0) throw new IllegalArgumentException("任务责任人不是当前项目活动成员");
         if (status != null && !Set.of("NOT_STARTED", "IN_PROGRESS", "READY_FOR_REVIEW", "COMPLETED", "RETURNED", "BLOCKED", "HUMAN_DECISION_REQUIRED").contains(status)) throw new IllegalArgumentException("任务状态无效");
         String beforeStatus = row.getStatus();
         row.setTitle(title == null ? row.getTitle() : title); row.setDescription(description == null ? row.getDescription() : description); row.setAssigneeRef(assigneeRef == null ? row.getAssigneeRef() : assigneeRef); row.setAssigneeRole(assigneeRole == null ? row.getAssigneeRole() : assigneeRole); row.setStatus(status == null ? row.getStatus() : status); tasks.update(row);
@@ -237,6 +239,10 @@ public class MybatisProjectRepository implements ProjectRepository {
     @Transactional
     public DeliverableRecord createDeliverable(String principalRef, long projectId, Long taskId, String title, String phase, String version, String sourceRef) {
         if (memberships.countTaskManager(projectId, principalRef) == 0) throw new AccessDeniedException("需要Owner、Project Admin或Orchestrator角色");
+        if (taskId != null) {
+            TaskRow task = tasks.find(taskId);
+            if (task == null || task.getProjectId() != projectId) throw new IllegalArgumentException("交付物关联任务不属于当前项目");
+        }
         DeliverableRow row = new DeliverableRow(); row.setProjectId(projectId); row.setTaskId(taskId); row.setTitle(title); row.setPhase(phase); row.setVersion(version); row.setSourceRef(sourceRef); row.setCreatedByRef(principalRef); deliverables.insert(row);
         audit(projectId, "DELIVERABLE", row.getId(), "DELIVERABLE_REGISTERED", null, "{\"reviewStatus\":\"PENDING\"}", principalRef, null, null);
         return deliverable(deliverables.find(row.getId()));
