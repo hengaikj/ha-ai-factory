@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { beginLogin, createProject, createProjectDeliverable, createProjectTask, getCurrentSession, getProjects, getProjectDeliverables, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks } from './api'
+import { beginLogin, createProject, createProjectDeliverable, createProjectTask, getCurrentSession, getProjects, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, submitGate } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -112,5 +112,15 @@ describe('contract API client', () => {
     await expect(getProjectResources(8, 'DISCOVERY', 'RULE')).resolves.toEqual([])
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/projects/8/issues', expect.objectContaining({ credentials: 'include' }))
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/projects/8/resources?phase=DISCOVERY&kind=RULE', expect.objectContaining({ credentials: 'include' }))
+  })
+
+  it('loads and submits Gate scope with CSRF protection', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json([]))
+      .mockResolvedValueOnce(Response.json({ id: 2, projectId: 8, phase: 'DISCOVERY', status: 'READY_FOR_REVIEW', taskIds: [3], deliverableIds: [], checks: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(getProjectGates(8)).resolves.toEqual([])
+    await expect(submitGate({ gateId: 2, decisionOwnerRef: 'p1', taskIds: [3], deliverableIds: [], csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ status: 'READY_FOR_REVIEW' })
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/gates/2/submission', expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'X-CSRF-Token': 'c'.repeat(32) }) }))
   })
 })

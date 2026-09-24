@@ -95,6 +95,29 @@ export interface ProjectResource {
   createdAt: string
 }
 
+export interface GateCheck {
+  id: number
+  code: string
+  title: string
+  status: string
+  reviewerRef?: string | null
+  comment?: string | null
+  evidenceRefs?: string[]
+}
+
+export interface ProjectGate {
+  id: number
+  projectId: number
+  phase: string
+  status: string
+  submittedByRef?: string | null
+  decisionOwnerRef?: string | null
+  taskIds: number[]
+  deliverableIds: number[]
+  submittedAt?: string | null
+  checks: GateCheck[]
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -238,4 +261,13 @@ export function getProjectResources(projectId: number, phase?: string, kind?: st
   const params = new URLSearchParams(); if (phase) params.set('phase', phase); if (kind) params.set('kind', kind)
   const suffix = params.toString() ? `?${params.toString()}` : ''
   return request(`/projects/${projectId}/resources${suffix}`)
+}
+
+/** 读取项目Gate和检查项。 */
+export function getProjectGates(projectId: number): Promise<ProjectGate[]> { return request(`/projects/${projectId}/gates`) }
+
+/** 提交Gate范围供独立Reviewer评审。 */
+export function submitGate(input: { gateId: number; decisionOwnerRef: string; taskIds: number[]; deliverableIds: number[]; csrfToken: string }): Promise<ProjectGate> {
+  const { gateId, csrfToken, ...body } = input
+  return request(`/gates/${gateId}/submission`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
 }
