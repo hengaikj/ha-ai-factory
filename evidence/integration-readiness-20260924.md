@@ -26,7 +26,7 @@
 
 ## 尚未满足的 Integration / Release 条件
 
-- 最新实现 HEAD 尚未完成独立 Reviewer 最终复审。
+- PR #2 已转为可审查状态（非 Draft），当前 GitHub 状态为 `REVIEW_REQUIRED`；仓库协作者中目前只有执行账号，尚未配置独立 Reviewer，因此最终复审仍未完成。
 - 真实 OIDC 测试 IdP 和认证后的浏览器 E2E 尚未配置。
 - GitHub 分支保护和 required checks 尚未由仓库管理员启用并提供证据。
 - Laya 生产模型 revision、权重摘要、许可证审查、中文离线评测和 mTLS 部署尚未完成。
