@@ -148,6 +148,7 @@ class ProjectApiIntegrationTest {
         var gateId = jdbc.queryForObject("SELECT id FROM project_gates WHERE project_id=? AND phase='DISCOVERY'", Long.class, projectId);
         jdbc.update("INSERT INTO gate_checks(gate_id,code,title) VALUES(?,'REQ','需求检查')", gateId);
         var checkId = jdbc.queryForObject("SELECT id FROM gate_checks WHERE gate_id=? AND code='REQ'", Long.class, gateId);
+        var defaultCheckId = jdbc.queryForObject("SELECT id FROM gate_checks WHERE gate_id=? AND code='SCOPE_EVIDENCE'", Long.class, gateId);
         mvc.perform(get("/projects/{projectId}/gates", projectId).with(alice))
                 .andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(1))).andExpect(jsonPath("$[0].status").value("PENDING"));
         mvc.perform(get("/projects/{projectId}/agent-runtime/config-status", projectId).with(alice))
@@ -164,6 +165,9 @@ class ProjectApiIntegrationTest {
         mvc.perform(post("/gates/{gateId}/checks/{checkId}/decision", gateId, checkId).with(bob).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"FAILED\",\"comment\":\"需要补充证据\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("FAILED"));
+        mvc.perform(post("/gates/{gateId}/checks/{checkId}/decision", gateId, defaultCheckId).with(bob).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"PASSED\",\"comment\":\"范围证据已核验\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PASSED"));
         mvc.perform(post("/gates/{gateId}/decision", gateId).with(bob).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"decision\":\"APPROVED\"}"))
                 .andExpect(status().isBadRequest());

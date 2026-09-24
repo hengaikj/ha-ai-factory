@@ -83,6 +83,7 @@ public class MybatisProjectRepository implements ProjectRepository {
         initialGate.setProjectId(row.getId());
         initialGate.setPhase("DISCOVERY");
         gates.ensure(initialGate);
+        ensureDefaultGateCheck(initialGate);
         AuditEventRow event = new AuditEventRow(); event.setProjectId(row.getId()); event.setObjectType("PROJECT"); event.setObjectId(row.getId()); event.setAction("PROJECT_CREATED"); event.setAfterState("{\"name\":\"" + name.replace("\"", "\\\"") + "\"}"); event.setActorRef(principalRef); auditEvents.insert(event);
         var now = java.time.Instant.now();
         return new ProjectRecord(row.getId(), name, description, techStack, principalRef, "DISCOVERY", "PENDING", 0, now, now);
@@ -379,11 +380,21 @@ public class MybatisProjectRepository implements ProjectRepository {
         nextGate.setProjectId(projectId);
         nextGate.setPhase(targetPhase);
         gates.ensure(nextGate);
+        ensureDefaultGateCheck(nextGate);
         audit(projectId, "PROJECT", projectId, "PROJECT_PHASE_CHANGED", "{\"phase\":" + quote(beforePhase) + "}", "{\"phase\":" + quote(targetPhase) + "}", principalRef, null, null);
         return toRecord(projects.findActiveForPrincipal(principalRef, projectId));
     }
 
     private TaskRecord task(TaskRow row) { return new TaskRecord(row.getId(), row.getProjectId(), row.getTitle(), row.getDescription(), row.getPhase(), row.getAssigneeRef(), row.getAssigneeRole(), row.getStatus(), row.getCreatedAt(), row.getUpdatedAt()); }
+
+    /** 为每个新阶段Gate建立最小人工检查项，确保最终决定前存在可审计检查记录。 */
+    private void ensureDefaultGateCheck(GateRow gate) {
+        GateCheckRow check = new GateCheckRow();
+        check.setGateId(gate.getId());
+        check.setCode("SCOPE_EVIDENCE");
+        check.setTitle("范围与证据完整性");
+        gates.ensureCheck(check);
+    }
 
     /** 将技术栈映射序列化为MySQL JSON字段内容。 */
     private String serialize(Map<String, String> value) {
