@@ -78,7 +78,7 @@ export interface OpenIssue {
   description: string
   impact: string
   decisionRole: string
-  status: string
+  status: 'OPEN' | 'HUMAN_DECISION_REQUIRED' | 'DECIDED' | 'TRACKING' | 'CLOSED'
   decision?: string | null
   createdAt: string
   decidedAt?: string | null
@@ -99,7 +99,7 @@ export interface GateCheck {
   id: number
   code: string
   title: string
-  status: string
+  status: 'PENDING' | 'PASSED' | 'FAILED' | 'CLARIFICATION_REQUIRED'
   reviewerRef?: string | null
   comment?: string | null
   evidenceRefs?: string[]
@@ -109,7 +109,7 @@ export interface ProjectGate {
   id: number
   projectId: number
   phase: string
-  status: string
+  status: 'PENDING' | 'READY_FOR_REVIEW' | 'APPROVED' | 'RETURNED' | 'BLOCKED' | 'HUMAN_DECISION_REQUIRED'
   submittedByRef?: string | null
   decisionOwnerRef?: string | null
   taskIds: number[]
@@ -121,7 +121,7 @@ export interface ProjectGate {
 export interface RuntimeConfigStatus {
   id?: number | null
   projectId: number
-  status: 'UNCONFIGURED' | 'PENDING_APPROVAL' | 'APPROVED' | 'EXPIRED'
+  status: 'UNCONFIGURED' | 'PENDING_APPROVAL' | 'REJECTED' | 'EXPIRED' | 'APPROVED' | 'VALIDATION_FAILED'
   modelRef?: string | null
   approvedAt?: string | null
   expiresAt?: string | null
