@@ -167,9 +167,12 @@ class ProjectApiIntegrationTest {
         mvc.perform(post("/gates/{gateId}/decision", gateId).with(bob).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"decision\":\"APPROVED\"}"))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/gates/{gateId}/decision", gateId).with(bob).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"decision\":\"RETURNED\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("RETURNED"));
+                mvc.perform(post("/gates/{gateId}/decision", gateId).with(bob).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"decision\":\"RETURNED\",\"comment\":\"补充证据后重提\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("RETURNED"))
+                .andExpect(jsonPath("$.reviewerRef").isNotEmpty())
+                .andExpect(jsonPath("$.decisionComment").value("补充证据后重提"))
+                .andExpect(jsonPath("$.decidedAt").isNotEmpty());
         String ownerRef = mvc.perform(get("/projects").with(alice))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(1)))

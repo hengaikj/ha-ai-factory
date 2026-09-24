@@ -25,6 +25,12 @@ public interface ProjectGateMapper {
     @Select("SELECT COUNT(*) FROM project_gates g LEFT JOIN project_tasks t ON t.project_id=g.project_id AND t.id IN (SELECT task_id FROM gate_scope_tasks WHERE gate_id=g.id) LEFT JOIN project_deliverables d ON d.project_id=g.project_id AND d.id IN (SELECT deliverable_id FROM gate_scope_deliverables WHERE gate_id=g.id) WHERE g.id=#{gateId} AND (g.submitted_by_ref=#{principalRef} OR g.decision_owner_ref=#{principalRef} OR t.assignee_ref=#{principalRef} OR d.created_by_ref=#{principalRef})") int countConflict(@Param("gateId") long gateId, @Param("principalRef") String principalRef);
     /** 更新Gate状态。 */
     @Update("UPDATE project_gates SET status=#{status} WHERE id=#{id}") int updateStatus(@Param("id") long id, @Param("status") String status);
+    /** 写入Gate最终决定历史，保留每次返回和批准的审计记录。 */
+    @Insert("INSERT INTO gate_decisions(gate_id,reviewer_ref,decision,comment) VALUES(#{gateId},#{reviewerRef},#{decision},#{comment})")
+    int addDecision(@Param("gateId") long gateId, @Param("reviewerRef") String reviewerRef, @Param("decision") String decision, @Param("comment") String comment);
+    /** 查询最近一次Gate最终决定，用于接口返回当前审计状态。 */
+    @Select("SELECT reviewer_ref AS reviewerRef,decision,comment,decided_at AS decidedAt FROM gate_decisions WHERE gate_id=#{gateId} ORDER BY decided_at DESC,id DESC LIMIT 1")
+    GateDecisionRow latestDecision(@Param("gateId") long gateId);
     /** 写入任务和交付物范围。 */
     @Insert("INSERT INTO gate_scope_tasks(project_id,gate_id,task_id) VALUES(#{projectId},#{gateId},#{taskId})") int addTaskScope(@Param("projectId") long projectId, @Param("gateId") long gateId, @Param("taskId") long taskId);
     @Insert("INSERT INTO gate_scope_deliverables(project_id,gate_id,deliverable_id) VALUES(#{projectId},#{gateId},#{deliverableId})") int addDeliverableScope(@Param("projectId") long projectId, @Param("gateId") long gateId, @Param("deliverableId") long deliverableId);

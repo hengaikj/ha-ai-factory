@@ -308,8 +308,8 @@ public class ProjectController {
     }
     public record CheckDecision(@NotBlank @Size(max = 40) String status, @Size(max = 4000) String comment, java.util.List<@Size(max = 2048) String> evidenceRefs) {}
     public record GateDecision(@NotBlank @Size(max = 40) String decision, @Size(max = 4000) String comment) {}
-    public record GateItem(long id, long projectId, String phase, String status, UUID submittedByRef, UUID decisionOwnerRef, java.util.List<Long> taskIds, java.util.List<Long> deliverableIds, Instant submittedAt, java.util.List<GateCheckItem> checks) {
-        static GateItem from(ProjectRepository.GateRecord v) { return new GateItem(v.id(), v.projectId(), v.phase(), v.status(), uuid(v.submittedByRef()), uuid(v.decisionOwnerRef()), v.taskIds(), v.deliverableIds(), v.submittedAt(), v.checks().stream().map(GateCheckItem::from).toList()); }
+    public record GateItem(long id, long projectId, String phase, String status, UUID submittedByRef, UUID decisionOwnerRef, java.util.List<Long> taskIds, java.util.List<Long> deliverableIds, Instant submittedAt, UUID reviewerRef, String decisionComment, Instant decidedAt, java.util.List<GateCheckItem> checks) {
+        static GateItem from(ProjectRepository.GateRecord v) { return new GateItem(v.id(), v.projectId(), v.phase(), v.status(), uuid(v.submittedByRef()), uuid(v.decisionOwnerRef()), v.taskIds(), v.deliverableIds(), v.submittedAt(), uuid(v.reviewerRef()), v.decisionComment(), v.decidedAt(), v.checks().stream().map(GateCheckItem::from).toList()); }
         private static UUID uuid(String value) { return value == null ? null : UUID.fromString(value); }
     }
     public record GateCheckItem(long id, String code, String title, String status, UUID reviewerRef, String comment, String evidenceRefs) {

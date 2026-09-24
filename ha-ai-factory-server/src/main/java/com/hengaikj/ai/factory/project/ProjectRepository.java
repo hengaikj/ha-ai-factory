@@ -50,7 +50,7 @@ public interface ProjectRepository {
     record DeliverableReviewRecord(long id, String reviewerRef, String outcome, String comment, String evidenceRefs, Instant createdAt) {}
     record IssueRecord(long id, long projectId, String code, String title, String description, String impact, String decisionRole, String status, String decision, Instant createdAt, Instant decidedAt) {}
     record ResourceRecord(long id, String kind, String title, String phase, String version, String sourceRef, String sourceStatus, Instant createdAt) {}
-    record GateRecord(long id, long projectId, String phase, String status, String submittedByRef, String decisionOwnerRef, List<Long> taskIds, List<Long> deliverableIds, Instant submittedAt, List<GateCheckRecord> checks) {}
+    record GateRecord(long id, long projectId, String phase, String status, String submittedByRef, String decisionOwnerRef, List<Long> taskIds, List<Long> deliverableIds, Instant submittedAt, String reviewerRef, String decisionComment, Instant decidedAt, List<GateCheckRecord> checks) {}
     record GateCheckRecord(long id, String code, String title, String status, String reviewerRef, String comment, String evidenceRefs) {}
     record RuntimeConfigRecord(Long id, long projectId, String status, String modelRef, Instant approvedAt, Instant expiresAt) {}
     record ActivityRecord(long id, String objectType, long objectId, String action, String beforeState, String afterState, String actorRef, String comment, String evidenceRefs, Instant occurredAt) {}
