@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ApiError, beginLogin, createProject, createProjectTask, getCurrentSession, getProjects, getProjectMembers, getProjectTasks, type CurrentSession, type Project, type ProjectMember, type ProjectTask } from './api'
+import { ApiError, beginLogin, createProject, createProjectTask, getCurrentSession, getProjects, getProjectMembers, getProjectTasks, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectResources, getRuntimeConfigStatus, type ActivityPage, type CurrentSession, type Deliverable, type Project, type ProjectGate, type ProjectMember, type ProjectResource, type ProjectTask, type OpenIssue, type RuntimeConfigStatus } from './api'
 
 type ViewState = 'loading' | 'unauthenticated' | 'ready' | 'error'
 const session = ref<CurrentSession | null>(null)
@@ -28,6 +28,16 @@ const taskTitle = ref('')
 const taskPhase = ref('DISCOVERY')
 const taskDescription = ref('')
 const taskCreating = ref(false)
+const workspaceProject = ref<Project | null>(null)
+const workspaceTab = ref<'overview' | 'deliverables' | 'issues' | 'gates' | 'activity' | 'resources' | 'runtime'>('overview')
+const workspaceLoading = ref(false)
+const workspaceError = ref('')
+const workspaceDeliverables = ref<Deliverable[]>([])
+const workspaceIssues = ref<OpenIssue[]>([])
+const workspaceGates = ref<ProjectGate[]>([])
+const workspaceActivity = ref<ActivityPage | null>(null)
+const workspaceResources = ref<ProjectResource[]>([])
+const workspaceRuntime = ref<RuntimeConfigStatus | null>(null)
 const projectName = ref('')
 const projectDescription = ref('')
 const loginError = new URLSearchParams(window.location.search).get('authError')
@@ -164,6 +174,20 @@ async function submitTask() {
   finally { taskCreating.value = false }
 }
 
+/** 打开项目综合工作区，按选中的标签读取已批准的项目对象。 */
+async function openWorkspace(project: Project, tab: typeof workspaceTab.value = 'overview') {
+  workspaceProject.value = project; workspaceTab.value = tab; workspaceError.value = ''; workspaceLoading.value = true
+  try {
+    if (tab === 'deliverables') workspaceDeliverables.value = (await getProjectDeliverables(project.id)).items
+    else if (tab === 'issues') workspaceIssues.value = await getProjectIssues(project.id)
+    else if (tab === 'gates') workspaceGates.value = await getProjectGates(project.id)
+    else if (tab === 'activity') workspaceActivity.value = await getProjectActivity(project.id)
+    else if (tab === 'resources') workspaceResources.value = await getProjectResources(project.id)
+    else if (tab === 'runtime') workspaceRuntime.value = await getRuntimeConfigStatus(project.id)
+  } catch (error) { workspaceError.value = error instanceof Error ? error.message : '工作区数据加载失败，请稍后重试。' }
+  finally { workspaceLoading.value = false }
+}
+
 onMounted(loadProjects)
 </script>
 
@@ -237,7 +261,7 @@ onMounted(loadProjects)
               <thead><tr><th>项目</th><th>负责人</th><th>当前阶段</th><th>Gate 状态</th><th>Open Issues</th><th>更新时间</th></tr></thead>
               <tbody>
                 <tr v-for="project in projects" :key="project.id">
-                  <td><button class="project-link" type="button" @click="openMembers(project)">{{ project.name }}</button><small>{{ project.description || '暂无项目描述' }}</small><span class="project-id">项目 #{{ project.id }} · <button class="inline-link" type="button" @click="openTasks(project)">查看任务</button></span></td>
+                  <td><button class="project-link" type="button" @click="openMembers(project)">{{ project.name }}</button><small>{{ project.description || '暂无项目描述' }}</small><span class="project-id">项目 #{{ project.id }} · <button class="inline-link" type="button" @click="openTasks(project)">任务</button> · <button class="inline-link" type="button" @click="openWorkspace(project)">工作区</button></span></td>
                   <td><span class="owner-chip">{{ project.ownerRef === session?.principalRef ? `我（${session.displayName}）` : `成员 #${project.ownerRef.slice(0, 8)}` }}</span></td>
                   <td><span class="phase-tag">{{ project.currentPhase }}</span></td>
                   <td><span class="gate-tag" :class="`gate-${project.gateStatus.toLowerCase()}`">{{ gateLabels[project.gateStatus] }}</span></td>
@@ -304,6 +328,26 @@ onMounted(loadProjects)
           <p v-if="taskError" class="form-error" role="alert">{{ taskError }}</p>
           <div v-if="tasks.length" class="task-list"><div v-for="task in tasks" :key="task.id" class="task-row"><div><strong>{{ task.title }}</strong><small>{{ task.phase }} · {{ task.status === 'NOT_STARTED' ? '未开始' : task.status }}</small></div><span class="phase-tag">#{{ task.id }}</span></div></div>
           <p v-else-if="!taskLoading" class="inline-empty">暂无任务，可在上方创建。</p>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="workspaceProject" class="dialog-backdrop" @click.self="workspaceProject = null">
+      <section class="create-dialog workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-title">
+        <div class="dialog-heading"><div><h2 id="workspace-title">{{ workspaceProject.name }} · 工作区</h2><p>项目对象按当前账号权限读取，文件内容仍通过仓库引用管理。</p></div><button class="dialog-close" type="button" aria-label="关闭" @click="workspaceProject = null">×</button></div>
+        <div class="workspace-tabs" role="tablist" aria-label="项目工作区标签">
+          <button v-for="tab in (['overview','deliverables','issues','gates','activity','resources','runtime'] as const)" :key="tab" type="button" :class="['workspace-tab', { active: workspaceTab === tab }]" @click="openWorkspace(workspaceProject!, tab)">{{ ({ overview: '概览', deliverables: '交付物', issues: 'Issues', gates: 'Gate', activity: 'Activity', resources: '资源', runtime: 'Runtime' } as Record<string,string>)[tab] }}</button>
+        </div>
+        <div v-if="workspaceLoading" class="state-panel" role="status">正在加载工作区…</div>
+        <p v-else-if="workspaceError" class="form-error" role="alert">{{ workspaceError }}</p>
+        <div v-else class="workspace-body">
+          <div v-if="workspaceTab === 'overview'" class="workspace-overview"><div><small>当前阶段</small><strong>{{ workspaceProject.currentPhase }}</strong></div><div><small>Gate</small><strong>{{ gateLabels[workspaceProject.gateStatus] }}</strong></div><div><small>Open Issues</small><strong>{{ workspaceProject.openIssueCount }}</strong></div></div>
+          <div v-else-if="workspaceTab === 'deliverables'" class="workspace-list"><div v-for="item in workspaceDeliverables" :key="item.id" class="workspace-row"><span><strong>{{ item.title }}</strong><small>{{ item.phase }} · {{ item.version }} · {{ item.sourceRef }}</small></span><span class="phase-tag">{{ item.reviewStatus }}</span></div><p v-if="!workspaceDeliverables.length" class="inline-empty">暂无交付物登记</p></div>
+          <div v-else-if="workspaceTab === 'issues'" class="workspace-list"><div v-for="item in workspaceIssues" :key="item.id" class="workspace-row"><span><strong>{{ item.code || `OI-${item.id}` }} · {{ item.title }}</strong><small>{{ item.impact }} · 决策角色：{{ item.decisionRole }}</small></span><span class="gate-tag gate-pending">{{ item.status }}</span></div><p v-if="!workspaceIssues.length" class="inline-empty">暂无 Open Issue</p></div>
+          <div v-else-if="workspaceTab === 'gates'" class="workspace-list"><div v-for="item in workspaceGates" :key="item.id" class="workspace-row"><span><strong>{{ item.phase }} Gate</strong><small>{{ item.taskIds.length }} 个任务 · {{ item.deliverableIds.length }} 个交付物 · {{ item.checks.length }} 个检查项</small></span><span class="gate-tag" :class="`gate-${item.status.toLowerCase()}`">{{ item.status }}</span></div><p v-if="!workspaceGates.length" class="inline-empty">暂无 Gate</p></div>
+          <div v-else-if="workspaceTab === 'activity'" class="workspace-list"><div v-for="item in workspaceActivity?.items" :key="item.id" class="workspace-row"><span><strong>{{ item.action }}</strong><small>{{ item.objectType }} #{{ item.objectId }} · {{ formatDate(item.occurredAt) }}</small></span></div><p v-if="!workspaceActivity?.items.length" class="inline-empty">暂无 Activity</p></div>
+          <div v-else-if="workspaceTab === 'resources'" class="workspace-list"><div v-for="item in workspaceResources" :key="item.id" class="workspace-row"><span><strong>{{ item.title }}</strong><small>{{ item.kind }} · {{ item.phase }} · {{ item.sourceRef }}</small></span><span class="phase-tag">{{ item.version }}</span></div><p v-if="!workspaceResources.length" class="inline-empty">暂无资源索引</p></div>
+          <div v-else class="workspace-overview runtime-overview"><div><small>授权状态</small><strong>{{ workspaceRuntime?.status || 'UNCONFIGURED' }}</strong></div><div><small>模型引用</small><strong>{{ workspaceRuntime?.modelRef || '未配置' }}</strong></div><p>真实模型、工具和外部副作用执行按 HD-002 保持失败关闭。</p></div>
         </div>
       </section>
     </div>
