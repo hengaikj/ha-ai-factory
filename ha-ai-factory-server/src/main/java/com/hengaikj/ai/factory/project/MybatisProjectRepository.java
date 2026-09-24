@@ -142,6 +142,7 @@ public class MybatisProjectRepository implements ProjectRepository {
     public MemberRecord replaceMemberRoles(String principalRef, long projectId, String targetPrincipalRef, Set<String> roles) {
         requireProjectAdmin(principalRef, projectId);
         validateRoles(roles);
+        if (memberships.countActiveMember(projectId, targetPrincipalRef) == 0) throw new IllegalArgumentException("目标主体不是当前项目活动成员");
         if (!roles.contains("OWNER") && memberships.countOwners(projectId) <= 1 && memberships.listActive(projectId).stream().anyMatch(m -> m.getPrincipalRef().equals(targetPrincipalRef) && roles(m.getRoles()).contains("OWNER"))) {
             throw new IllegalArgumentException("项目必须至少保留一名Owner");
         }
