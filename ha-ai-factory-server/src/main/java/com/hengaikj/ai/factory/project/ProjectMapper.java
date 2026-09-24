@@ -32,6 +32,10 @@ public interface ProjectMapper {
     List<ProjectRow> listActiveForPrincipal(@Param("principalRef") String principalRef, @Param("query") String query,
                                             @Param("limit") int limit, @Param("offset") int offset);
 
+    /** 按项目成员关系读取单个项目及其摘要。 */
+    @Select("SELECT p.id,p.name,p.description,p.tech_stack AS techStack,p.current_phase AS currentPhase,p.owner_ref AS ownerRef,p.created_at AS createdAt,p.updated_at AS updatedAt,COALESCE((SELECT CASE g.status WHEN 'READY_FOR_REVIEW' THEN 'PENDING' ELSE g.status END FROM project_gates g WHERE g.project_id=p.id AND g.phase=p.current_phase),'PENDING') AS gateStatus,(SELECT COUNT(*) FROM open_issues i WHERE i.project_id=p.id AND i.status IN ('OPEN','HUMAN_DECISION_REQUIRED','TRACKING')) AS openIssueCount FROM projects p JOIN project_members m ON m.project_id=p.id WHERE p.id=#{projectId} AND m.principal_ref=#{principalRef} AND m.membership_status='ACTIVE'")
+    ProjectRow findActiveForPrincipal(@Param("principalRef") String principalRef, @Param("projectId") long projectId);
+
     /** 以相同成员与搜索条件计算项目总数，供分页界面显示。 */
     @Select("SELECT COUNT(*) FROM projects p JOIN project_members m ON m.project_id=p.id " +
             "WHERE m.principal_ref=#{principalRef} AND m.membership_status='ACTIVE' " +

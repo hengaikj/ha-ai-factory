@@ -80,6 +80,14 @@ public class MybatisProjectRepository implements ProjectRepository {
         return new ProjectPage(items, page, pageSize, projects.countActiveForPrincipal(principalRef, normalized));
     }
 
+    /** 读取单个项目详情，访问边界仍由活动成员关系约束。 */
+    @Override
+    public ProjectRecord getProject(String principalRef, long projectId) {
+        ProjectRow row = projects.findActiveForPrincipal(principalRef, projectId);
+        if (row == null) throw new AccessDeniedException("项目不存在或当前主体无权访问");
+        return toRecord(row);
+    }
+
     /** 仅向项目Owner或管理员暴露活动成员和角色。 */
     @Override
     public List<MemberRecord> listMembers(String principalRef, long projectId) {

@@ -55,6 +55,12 @@ public class ProjectController {
         return ProjectItem.from(project);
     }
 
+    /** 查询当前主体有权访问的项目详情。 */
+    @GetMapping("/projects/{projectId}")
+    public ProjectItem get(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId) {
+        return ProjectItem.from(repository.getProject(principal(user).principalRef(), projectId));
+    }
+
     /** 查询当前项目的活动成员，仅Owner或Project Admin可见。 */
     @GetMapping("/projects/{projectId}/members")
     public java.util.List<MemberItem> members(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId) {
