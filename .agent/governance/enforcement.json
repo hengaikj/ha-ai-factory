@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "mode": "advisory",
+  "mode_values": ["advisory", "strict"],
+  "ci": {
+    "required_check_name": "HA Governance / gate",
+    "required": false,
+    "run_on_pull_request": true
+  },
+  "review": {
+    "independent_reviewer_required": false,
+    "minimum_approvals": 0
+  },
+  "branch": {
+    "direct_push_allowed": true,
+    "force_push_allowed": false,
+    "administrator_bypass_allowed": true
+  },
+  "transition": {
+    "strict_requires": ["负责人接受治理基线", "独立 Reviewer 复审", "CI 失败阻断演练", "分支保护配置证据"]
+  },
+  "note": "advisory 模式仅报告结果；禁止动作仍保持失败关闭。"
+}

@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def evaluate_gate(work: dict[str, Any], context: dict[str, Any], action: str) -> dict[str, Any]:
     """以失败关闭方式计算门禁，不接受工作项自带的批准字段。"""
     policy = json.loads((ROOT / ".agent/governance/policy.json").read_text(encoding="utf-8"))
+    enforcement = json.loads((ROOT / ".agent/governance/enforcement.json").read_text(encoding="utf-8"))
     result = {key: context.get(key, "NOT_RUN") for key in ("content_quality", "contract_coverage", "implementation_quality")}
     result.update({"human_approval": context.get("human_approval", "PENDING"), "formal_readiness": "BLOCKED", "decision": "BLOCK", "reason_codes": []})
     if action in policy["blocked_actions"]:
@@ -28,4 +29,7 @@ def evaluate_gate(work: dict[str, Any], context: dict[str, Any], action: str) ->
     if not result["reason_codes"]:
         result["formal_readiness"] = "READY"
         result["decision"] = "ALLOW"
+    elif enforcement.get("mode") == "advisory" and action not in policy["blocked_actions"]:
+        result["formal_readiness"] = "REVIEW_REQUIRED"
+        result["decision"] = "REVIEW_REQUIRED"
     return result
