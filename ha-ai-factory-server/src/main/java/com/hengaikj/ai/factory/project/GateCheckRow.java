@@ -1,0 +1,4 @@
+package com.hengaikj.ai.factory.project;
+/** Gate检查项数据库行。 */
+public class GateCheckRow { private Long id,gateId; private String code,title,status,reviewerRef,comment,evidenceRefs;
+ public Long getId(){return id;} public void setId(Long v){id=v;} public Long getGateId(){return gateId;} public void setGateId(Long v){gateId=v;} public String getCode(){return code;} public void setCode(String v){code=v;} public String getTitle(){return title;} public void setTitle(String v){title=v;} public String getStatus(){return status;} public void setStatus(String v){status=v;} public String getReviewerRef(){return reviewerRef;} public void setReviewerRef(String v){reviewerRef=v;} public String getComment(){return comment;} public void setComment(String v){comment=v;} public String getEvidenceRefs(){return evidenceRefs;} public void setEvidenceRefs(String v){evidenceRefs=v;} }

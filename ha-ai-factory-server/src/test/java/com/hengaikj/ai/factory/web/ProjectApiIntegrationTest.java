@@ -132,6 +132,14 @@ class ProjectApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].sourceRef").value("process/rules.md"));
+        jdbc.update("INSERT INTO project_gates(project_id,phase) VALUES(?,'DISCOVERY')", projectId);
+        var gateId = jdbc.queryForObject("SELECT id FROM project_gates WHERE project_id=? AND phase='DISCOVERY'", Long.class, projectId);
+        jdbc.update("INSERT INTO gate_checks(gate_id,code,title) VALUES(?,'REQ','需求检查')", gateId);
+        mvc.perform(get("/projects/{projectId}/gates", projectId).with(alice))
+                .andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(1))).andExpect(jsonPath("$[0].status").value("PENDING"));
+        mvc.perform(post("/gates/{gateId}/submission", gateId).with(alice).header("Origin", "http://localhost").with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"decisionOwnerRef\":\"" + principalRef + "\",\"taskIds\":[1],\"deliverableIds\":[]}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("READY_FOR_REVIEW"));
         String ownerRef = mvc.perform(get("/projects").with(alice))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items", hasSize(1)))
@@ -142,7 +150,7 @@ class ProjectApiIntegrationTest {
                 .andExpect(jsonPath("$.pageSize").value(20))
                 .andExpect(jsonPath("$.total").value(1))
                 .andReturn().getResponse().getContentAsString();
-        jdbc.update("INSERT INTO project_gates(project_id,phase,status) VALUES(?,'DISCOVERY','APPROVED')", projectId);
+        jdbc.update("UPDATE project_gates SET status='APPROVED' WHERE id=?", gateId);
         jdbc.update("INSERT INTO open_issues(project_id,title,description,impact,decision_role,status,created_by_ref) " +
                 "VALUES(?,'Issue','描述','影响','Owner','OPEN',?)", projectId, principalRef);
         mvc.perform(get("/projects").with(alice))

@@ -27,6 +27,11 @@ public interface ProjectRepository {
     IssueRecord createIssue(String principalRef, long projectId, String code, String title, String description, String impact, String decisionRole, String status);
     IssueRecord decideIssue(String principalRef, long issueId, String decision, String status);
     List<ResourceRecord> listResources(String principalRef, long projectId, String phase, String kind);
+    List<GateRecord> listGates(String principalRef, long projectId);
+    GateRecord getGate(String principalRef, long gateId);
+    GateRecord submitGate(String principalRef, long gateId, String decisionOwnerRef, List<Long> taskIds, List<Long> deliverableIds);
+    GateCheckRecord decideGateCheck(String principalRef, long gateId, long checkId, String status, String comment, String evidenceRefs);
+    GateRecord decideGate(String principalRef, long gateId, String decision, String comment);
 
     record PrincipalRecord(String principalRef, String displayName) {}
     record ProjectRecord(long id, String name, String description, Map<String, String> techStack,
@@ -41,4 +46,6 @@ public interface ProjectRepository {
     record DeliverableReviewRecord(long id, String reviewerRef, String outcome, String comment, String evidenceRefs, Instant createdAt) {}
     record IssueRecord(long id, long projectId, String code, String title, String description, String impact, String decisionRole, String status, String decision, Instant createdAt, Instant decidedAt) {}
     record ResourceRecord(long id, String kind, String title, String phase, String version, String sourceRef, String sourceStatus, Instant createdAt) {}
+    record GateRecord(long id, long projectId, String phase, String status, String submittedByRef, String decisionOwnerRef, List<Long> taskIds, List<Long> deliverableIds, Instant submittedAt, List<GateCheckRecord> checks) {}
+    record GateCheckRecord(long id, String code, String title, String status, String reviewerRef, String comment, String evidenceRefs) {}
 }

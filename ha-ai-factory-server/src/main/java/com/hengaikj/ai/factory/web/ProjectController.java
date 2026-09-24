@@ -175,6 +175,30 @@ public class ProjectController {
         return repository.listResources(principal(user).principalRef(), projectId, phase, kind).stream().map(ResourceItem::from).toList();
     }
 
+    /** 查询项目Gate及检查项。 */
+    @GetMapping("/projects/{projectId}/gates")
+    public java.util.List<GateItem> gates(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId) {
+        return repository.listGates(principal(user).principalRef(), projectId).stream().map(GateItem::from).toList();
+    }
+    /** 查询Gate详情。 */
+    @GetMapping("/gates/{gateId}")
+    public GateItem gate(@AuthenticationPrincipal OidcUser user, @PathVariable long gateId) { return GateItem.from(repository.getGate(principal(user).principalRef(), gateId)); }
+    /** 提交Gate供独立Reviewer评审。 */
+    @PostMapping("/gates/{gateId}/submission")
+    public GateItem submitGate(@AuthenticationPrincipal OidcUser user, @PathVariable long gateId, @Valid @RequestBody GateSubmission body) {
+        return GateItem.from(repository.submitGate(principal(user).principalRef(), gateId, body.decisionOwnerRef().toString(), body.taskIds(), body.deliverableIds()));
+    }
+    /** 记录Gate检查结论。 */
+    @PostMapping("/gates/{gateId}/checks/{checkId}/decision")
+    public GateCheckItem decideGateCheck(@AuthenticationPrincipal OidcUser user, @PathVariable long gateId, @PathVariable long checkId, @Valid @RequestBody CheckDecision body) {
+        return GateCheckItem.from(repository.decideGateCheck(principal(user).principalRef(), gateId, checkId, body.status(), body.comment(), body.evidenceRefs() == null ? "[]" : body.evidenceRefs().toString()));
+    }
+    /** 提交Gate最终独立决定。 */
+    @PostMapping("/gates/{gateId}/decision")
+    public GateItem decideGate(@AuthenticationPrincipal OidcUser user, @PathVariable long gateId, @Valid @RequestBody GateDecision body) {
+        return GateItem.from(repository.decideGate(principal(user).principalRef(), gateId, body.decision(), body.comment()));
+    }
+
     /** 从Spring已验证的OIDC会话派生主体，不采信请求载荷中的操作者字段。 */
     private ProjectRepository.PrincipalRecord principal(OidcUser user) {
         if (user == null || user.getIssuer() == null || user.getSubject() == null || user.getSubject().isBlank()) {
@@ -236,6 +260,18 @@ public class ProjectController {
     }
     public record ResourceItem(long id, String kind, String title, String phase, String version, String sourceRef, String sourceStatus, Instant createdAt) {
         static ResourceItem from(ProjectRepository.ResourceRecord v) { return new ResourceItem(v.id(), v.kind(), v.title(), v.phase(), v.version(), v.sourceRef(), v.sourceStatus(), v.createdAt()); }
+    }
+    public record GateSubmission(@jakarta.validation.constraints.NotNull UUID decisionOwnerRef, java.util.List<Long> taskIds, java.util.List<Long> deliverableIds) {
+        public GateSubmission { taskIds = taskIds == null ? java.util.List.of() : taskIds; deliverableIds = deliverableIds == null ? java.util.List.of() : deliverableIds; }
+    }
+    public record CheckDecision(@NotBlank @Size(max = 40) String status, @Size(max = 4000) String comment, java.util.List<@Size(max = 2048) String> evidenceRefs) {}
+    public record GateDecision(@NotBlank @Size(max = 40) String decision, @Size(max = 4000) String comment) {}
+    public record GateItem(long id, long projectId, String phase, String status, UUID submittedByRef, UUID decisionOwnerRef, java.util.List<Long> taskIds, java.util.List<Long> deliverableIds, Instant submittedAt, java.util.List<GateCheckItem> checks) {
+        static GateItem from(ProjectRepository.GateRecord v) { return new GateItem(v.id(), v.projectId(), v.phase(), v.status(), uuid(v.submittedByRef()), uuid(v.decisionOwnerRef()), v.taskIds(), v.deliverableIds(), v.submittedAt(), v.checks().stream().map(GateCheckItem::from).toList()); }
+        private static UUID uuid(String value) { return value == null ? null : UUID.fromString(value); }
+    }
+    public record GateCheckItem(long id, String code, String title, String status, UUID reviewerRef, String comment, String evidenceRefs) {
+        static GateCheckItem from(ProjectRepository.GateCheckRecord v) { return new GateCheckItem(v.id(), v.code(), v.title(), v.status(), v.reviewerRef() == null ? null : UUID.fromString(v.reviewerRef()), v.comment(), v.evidenceRefs()); }
     }
 
     public record ProjectItem(long id, String name, String description, Map<String, String> techStack,

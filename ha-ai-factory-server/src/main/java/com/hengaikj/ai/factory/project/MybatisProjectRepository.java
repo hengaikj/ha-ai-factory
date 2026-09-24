@@ -24,10 +24,11 @@ public class MybatisProjectRepository implements ProjectRepository {
     private final ProjectDeliverableMapper deliverables;
     private final ProjectIssueMapper issues;
     private final ProjectResourceMapper resources;
+    private final ProjectGateMapper gates;
     private final ObjectMapper json;
 
     public MybatisProjectRepository(PrincipalMapper principals, ProjectMapper projects,
-                                    ProjectMembershipMapper memberships, ProjectTaskMapper tasks, ProjectDeliverableMapper deliverables, ProjectIssueMapper issues, ProjectResourceMapper resources, ObjectMapper json) {
+                                    ProjectMembershipMapper memberships, ProjectTaskMapper tasks, ProjectDeliverableMapper deliverables, ProjectIssueMapper issues, ProjectResourceMapper resources, ProjectGateMapper gates, ObjectMapper json) {
         this.principals = principals;
         this.projects = projects;
         this.memberships = memberships;
@@ -35,6 +36,7 @@ public class MybatisProjectRepository implements ProjectRepository {
         this.deliverables = deliverables;
         this.issues = issues;
         this.resources = resources;
+        this.gates = gates;
         this.json = json;
     }
 
@@ -251,6 +253,42 @@ public class MybatisProjectRepository implements ProjectRepository {
         if (memberships.countActiveMember(projectId, principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
         return resources.list(projectId, phase, kind).stream().map(r -> new ResourceRecord(r.getId(), r.getKind(), r.getTitle(), r.getPhase(), r.getVersion(), r.getSourceRef(), r.getSourceStatus(), r.getCreatedAt())).toList();
     }
+
+    /** 查询项目Gate及其检查项。 */
+    @Override public List<GateRecord> listGates(String principalRef, long projectId) {
+        if (memberships.countActiveMember(projectId, principalRef) == 0) throw new AccessDeniedException("不是项目活动成员");
+        return gates.list(projectId).stream().map(this::gate).toList();
+    }
+    /** 查询单个Gate。 */
+    @Override public GateRecord getGate(String principalRef, long gateId) {
+        GateRow row = gates.find(gateId); if (row == null) throw new IllegalArgumentException("Gate不存在");
+        if (memberships.countActiveMember(row.getProjectId(), principalRef) == 0) throw new AccessDeniedException("不是项目活动成员"); return gate(row);
+    }
+    /** 提交Gate并固定任务/交付物范围。 */
+    @Override @Transactional public GateRecord submitGate(String principalRef, long gateId, String decisionOwnerRef, List<Long> taskIds, List<Long> deliverableIds) {
+        GateRow row = gates.find(gateId); if (row == null) throw new IllegalArgumentException("Gate不存在");
+        if (memberships.countTaskManager(row.getProjectId(), principalRef) == 0) throw new AccessDeniedException("需要项目编排角色");
+        if (memberships.countActiveMember(row.getProjectId(), decisionOwnerRef) == 0) throw new IllegalArgumentException("决策责任人不是活动成员");
+        if (taskIds.isEmpty() && deliverableIds.isEmpty()) throw new IllegalArgumentException("Gate至少需要一个任务或交付物");
+        row.setSubmittedByRef(principalRef); row.setDecisionOwnerRef(decisionOwnerRef); gates.submit(row);
+        taskIds.forEach(id -> gates.addTaskScope(row.getProjectId(), gateId, id)); deliverableIds.forEach(id -> gates.addDeliverableScope(row.getProjectId(), gateId, id));
+        return gate(gates.find(gateId));
+    }
+    /** 记录独立Reviewer检查结论并执行冲突校验。 */
+    @Override @Transactional public GateCheckRecord decideGateCheck(String principalRef, long gateId, long checkId, String status, String comment, String evidenceRefs) {
+        GateRow gate = gates.find(gateId); if (gate == null || !"READY_FOR_REVIEW".equals(gate.getStatus())) throw new IllegalArgumentException("Gate未进入评审状态");
+        if (memberships.countReviewer(gate.getProjectId(), principalRef) == 0 || gates.countConflict(gateId, principalRef) > 0) throw new AccessDeniedException("Reviewer独立性校验未通过");
+        GateCheckRow row = gates.checks(gateId).stream().filter(c -> c.getId().equals(checkId)).findFirst().orElseThrow(() -> new IllegalArgumentException("检查项不存在"));
+        row.setReviewerRef(principalRef); row.setStatus(status); row.setComment(comment); row.setEvidenceRefs(evidenceRefs); gates.decideCheck(row); return check(row);
+    }
+    /** 记录最终Gate决定，必须先完成全部检查项且通过独立性校验。 */
+    @Override @Transactional public GateRecord decideGate(String principalRef, long gateId, String decision, String comment) {
+        GateRow gate = gates.find(gateId); if (gate == null || !"READY_FOR_REVIEW".equals(gate.getStatus())) throw new IllegalArgumentException("Gate未进入评审状态");
+        if (memberships.countReviewer(gate.getProjectId(), principalRef) == 0 || gates.countConflict(gateId, principalRef) > 0) throw new AccessDeniedException("Reviewer独立性校验未通过");
+        if (gates.pendingChecks(gateId) > 0) throw new IllegalArgumentException("仍有未完成的Gate检查项"); gates.updateStatus(gateId, decision); return gate(gates.find(gateId));
+    }
+    private GateRecord gate(GateRow row) { return new GateRecord(row.getId(), row.getProjectId(), row.getPhase(), row.getStatus(), row.getSubmittedByRef(), row.getDecisionOwnerRef(), gates.taskIds(row.getId()), gates.deliverableIds(row.getId()), row.getSubmittedAt(), gates.checks(row.getId()).stream().map(this::check).toList()); }
+    private GateCheckRecord check(GateCheckRow row) { return new GateCheckRecord(row.getId(), row.getCode(), row.getTitle(), row.getStatus(), row.getReviewerRef(), row.getComment(), row.getEvidenceRefs()); }
 
     private TaskRecord task(TaskRow row) { return new TaskRecord(row.getId(), row.getProjectId(), row.getTitle(), row.getDescription(), row.getPhase(), row.getAssigneeRef(), row.getAssigneeRole(), row.getStatus(), row.getCreatedAt(), row.getUpdatedAt()); }
 
