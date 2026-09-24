@@ -12,8 +12,8 @@
 
 ## 未核验/未启用
 
-- GitHub Actions 实际运行记录：当前提交尚未推送，未产生远端 run 证据。
-- required check、独立 Reviewer、禁止直推和分支保护：GitHub API 未授权（HTTP 401），状态 `UNVERIFIED`。
+- GitHub Actions 实际运行记录：Push `36000240185` 与 PR `36000245229` 均已通过四个 job。
+- required check、独立 Reviewer、禁止直推和分支保护：分支保护 API 返回 `404 Branch not protected`，状态 `UNVERIFIED`。
 - 治理基线接受收据：`.agent/governance/adoption.json` 仍为 `PROPOSED`。
 
 本记录证明工作流文件和 Action 来源可核验，不证明远端 CI 或分支保护已生效。
