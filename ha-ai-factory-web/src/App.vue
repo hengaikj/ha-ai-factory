@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ApiError, addProjectMember, advanceProjectStage, beginLogin, createProject, createProjectDeliverable, createProjectIssue, createProjectTask, decideGate, decideGateCheck, decideProjectIssue, getCurrentSession, getProjects, getProjectMembers, getProjectTasks, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectResources, getRuntimeConfigStatus, removeProjectMember, replaceProjectMemberRoles, reviewProjectDeliverable, updateProject, type ActivityPage, type CurrentSession, type Deliverable, type Project, type ProjectGate, type ProjectMember, type ProjectResource, type ProjectTask, type OpenIssue, type RuntimeConfigStatus } from './api'
+import { ApiError, addProjectMember, advanceProjectStage, beginLogin, createProject, createProjectDeliverable, createProjectIssue, createProjectTask, decideGate, decideGateCheck, decideProjectIssue, getCurrentSession, getProjects, getProjectMembers, getProjectTasks, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectResources, getRuntimeConfigStatus, removeProjectMember, replaceProjectMemberRoles, reviewProjectDeliverable, updateProject, updateProjectTask, type ActivityPage, type CurrentSession, type Deliverable, type Project, type ProjectGate, type ProjectMember, type ProjectResource, type ProjectTask, type OpenIssue, type RuntimeConfigStatus } from './api'
 
 type ViewState = 'loading' | 'unauthenticated' | 'ready' | 'error'
 const session = ref<CurrentSession | null>(null)
@@ -30,6 +30,7 @@ const taskTitle = ref('')
 const taskPhase = ref('DISCOVERY')
 const taskDescription = ref('')
 const taskCreating = ref(false)
+const taskUpdating = ref(false)
 const workspaceProject = ref<Project | null>(null)
 const workspaceTab = ref<'overview' | 'deliverables' | 'issues' | 'gates' | 'activity' | 'resources' | 'runtime'>('overview')
 const workspaceLoading = ref(false)
@@ -207,6 +208,15 @@ async function submitTask() {
     taskTitle.value = ''; taskDescription.value = ''
   } catch (error) { taskError.value = error instanceof Error ? error.message : '任务创建失败，请稍后重试。' }
   finally { taskCreating.value = false }
+}
+
+/** 仅通过后端状态机更新任务状态，失败时保留当前列表快照。 */
+async function updateTaskStatus(task: ProjectTask, status: string) {
+  if (!session.value || taskUpdating.value) return
+  taskUpdating.value = true; taskError.value = ''
+  try { const updated = await updateProjectTask({ taskId: task.id, status, csrfToken: session.value.csrfToken }); tasks.value = tasks.value.map(v => v.id === updated.id ? updated : v) }
+  catch (error) { taskError.value = error instanceof Error ? error.message : '任务状态更新失败，请稍后重试。' }
+  finally { taskUpdating.value = false }
 }
 
 /** 打开项目综合工作区，按选中的标签读取已批准的项目对象。 */
@@ -432,7 +442,7 @@ onMounted(loadProjects)
             <button class="primary-button" type="submit" :disabled="taskCreating">{{ taskCreating ? '创建中…' : '新建任务' }}</button>
           </form>
           <p v-if="taskError" class="form-error" role="alert">{{ taskError }}</p>
-          <div v-if="tasks.length" class="task-list"><div v-for="task in tasks" :key="task.id" class="task-row"><div><strong>{{ task.title }}</strong><small>{{ task.phase }} · {{ task.status === 'NOT_STARTED' ? '未开始' : task.status }}</small></div><span class="phase-tag">#{{ task.id }}</span></div></div>
+          <div v-if="tasks.length" class="task-list"><div v-for="task in tasks" :key="task.id" class="task-row"><div><strong>{{ task.title }}</strong><small>{{ task.phase }} · {{ task.status === 'NOT_STARTED' ? '未开始' : task.status }}</small></div><span class="task-create-form"><select :value="task.status" :disabled="taskUpdating" aria-label="任务状态" @change="updateTaskStatus(task, ($event.target as HTMLSelectElement).value)"><option value="NOT_STARTED">未开始</option><option value="IN_PROGRESS">进行中</option><option value="READY_FOR_REVIEW">待评审</option><option value="COMPLETED">已完成</option><option value="BLOCKED">已阻塞</option></select><span class="phase-tag">#{{ task.id }}</span></span></div></div>
           <p v-else-if="!taskLoading" class="inline-empty">暂无任务，可在上方创建。</p>
         </div>
       </section>
