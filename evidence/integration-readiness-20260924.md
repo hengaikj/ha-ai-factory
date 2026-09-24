@@ -16,6 +16,8 @@
 | 浏览器 smoke | 本地 Vite + in-app browser | 页面渲染、未登录/后端不可用状态可见，未泄露异常详情 |
 | 前后端匿名联调 | 临时 MySQL 8.0.36 + Spring Boot + `curl /projects` | Flyway V1–V8 成功，匿名请求返回 HTTP 401；测试容器和进程已清理 |
 
+远端 GitHub Actions 运行 `35999813344`（Push）和 `35999819344`（PR #2 merge ref）均已通过 Governance、Backend、Frontend、Agent Runtime 四个 job。Agent Runtime 失败的依赖安装问题已由 `7a4d267` 修复；工作流使用 `pip install '.[dev]'` 时现在会安装 pytest。
+
 ## 自动化配置
 
 `.github/workflows/ha-governance.yml` 已包含 Governance、Backend、Frontend 和 Agent Runtime 四个验证 job，并在 Pull Request 与目标分支 Push 时运行。
