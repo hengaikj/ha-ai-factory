@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ApiError, beginLogin, createProject, getCurrentSession, getProjects, type CurrentSession, type Project } from './api'
+import { ApiError, beginLogin, createProject, getCurrentSession, getProjects, getProjectMembers, type CurrentSession, type Project, type ProjectMember } from './api'
 
 type ViewState = 'loading' | 'unauthenticated' | 'ready' | 'error'
 const session = ref<CurrentSession | null>(null)
@@ -15,6 +15,10 @@ const createOpen = ref(false)
 const creating = ref(false)
 const loginStarting = ref(false)
 const loginErrorMessage = ref('')
+const memberProject = ref<Project | null>(null)
+const members = ref<ProjectMember[]>([])
+const memberLoading = ref(false)
+const memberError = ref('')
 const createError = ref('')
 const projectName = ref('')
 const projectDescription = ref('')
@@ -116,6 +120,17 @@ function formatDate(value: string) {
   return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium' }).format(date)
 }
 
+/** 打开项目成员只读面板，成员权限由后端按项目角色校验。 */
+async function openMembers(project: Project) {
+  memberProject.value = project
+  members.value = []
+  memberError.value = ''
+  memberLoading.value = true
+  try { members.value = await getProjectMembers(project.id) }
+  catch (error) { memberError.value = error instanceof Error ? error.message : '成员加载失败，请稍后重试。' }
+  finally { memberLoading.value = false }
+}
+
 onMounted(loadProjects)
 </script>
 
@@ -189,7 +204,7 @@ onMounted(loadProjects)
               <thead><tr><th>项目</th><th>负责人</th><th>当前阶段</th><th>Gate 状态</th><th>Open Issues</th><th>更新时间</th></tr></thead>
               <tbody>
                 <tr v-for="project in projects" :key="project.id">
-                  <td><strong>{{ project.name }}</strong><small>{{ project.description || '暂无项目描述' }}</small><span class="project-id">项目 #{{ project.id }}</span></td>
+                  <td><button class="project-link" type="button" @click="openMembers(project)">{{ project.name }}</button><small>{{ project.description || '暂无项目描述' }}</small><span class="project-id">项目 #{{ project.id }}</span></td>
                   <td><span class="owner-chip">{{ project.ownerRef === session?.principalRef ? `我（${session.displayName}）` : `成员 #${project.ownerRef.slice(0, 8)}` }}</span></td>
                   <td><span class="phase-tag">{{ project.currentPhase }}</span></td>
                   <td><span class="gate-tag" :class="`gate-${project.gateStatus.toLowerCase()}`">{{ gateLabels[project.gateStatus] }}</span></td>
@@ -229,6 +244,15 @@ onMounted(loadProjects)
           <p v-if="createError" class="form-error" role="alert">{{ createError }}</p>
           <div class="dialog-actions"><button class="secondary-button" type="button" :disabled="creating" @click="createOpen = false">取消</button><button class="primary-button" type="submit" :disabled="creating">{{ creating ? '正在创建…' : '创建项目' }}</button></div>
         </form>
+      </section>
+    </div>
+
+    <div v-if="memberProject" class="dialog-backdrop" @click.self="memberProject = null">
+      <section class="create-dialog" role="dialog" aria-modal="true" aria-labelledby="members-title">
+        <div class="dialog-heading"><div><h2 id="members-title">{{ memberProject.name }} · 项目成员</h2><p>成员角色由服务端项目权限控制。</p></div><button class="dialog-close" type="button" aria-label="关闭" @click="memberProject = null">×</button></div>
+        <div v-if="memberLoading" class="state-panel" role="status">正在加载成员…</div>
+        <p v-else-if="memberError" class="form-error" role="alert">{{ memberError }}</p>
+        <div v-else class="member-list"><div v-for="member in members" :key="member.principalRef" class="member-row"><span class="avatar">{{ member.displayName.slice(0, 1) }}</span><span><strong>{{ member.displayName }}</strong><small>{{ member.roles.join(' · ') }}</small></span></div><p v-if="!members.length" class="inline-empty">暂无可见成员</p></div>
       </section>
     </div>
   </div>

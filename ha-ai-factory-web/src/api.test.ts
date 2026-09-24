@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { beginLogin, createProject, getCurrentSession, getProjects } from './api'
+import { beginLogin, createProject, getCurrentSession, getProjects, getProjectMembers } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -71,5 +71,12 @@ describe('contract API client', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(getProjects()).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' })
+  })
+
+  it('loads project members through the scoped member route', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json([{ principalRef: 'p1', displayName: '张三', roles: ['OWNER'], joinedAt: '2026-01-01T00:00:00Z' }]))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(getProjectMembers(8)).resolves.toMatchObject([{ displayName: '张三', roles: ['OWNER'] }])
+    expect(fetchMock).toHaveBeenCalledWith('/projects/8/members', expect.objectContaining({ credentials: 'include' }))
   })
 })

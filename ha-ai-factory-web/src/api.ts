@@ -24,6 +24,13 @@ export interface ProjectPage {
   total: number
 }
 
+export interface ProjectMember {
+  principalRef: string
+  displayName: string
+  roles: string[]
+  joinedAt: string
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -116,4 +123,9 @@ export function createProject(input: { name: string; description?: string; csrfT
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
     body: JSON.stringify(body),
   })
+}
+
+/** 读取当前项目的活动成员和角色，仅后端授权主体可见。 */
+export function getProjectMembers(projectId: number): Promise<ProjectMember[]> {
+  return request(`/projects/${projectId}/members`)
 }

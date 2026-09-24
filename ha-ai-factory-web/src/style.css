@@ -7,3 +7,8 @@
 @media(max-width:720px){.project-toolbar{align-items:flex-start;flex-direction:column}.search-box{width:100%}.project-table{min-width:760px}.state-panel{min-height:280px}.create-dialog{padding:19px}}
 
 .search-box button{border:0;background:transparent;color:#6258d8;font-size:10px;cursor:pointer}.pagination{display:flex;align-items:center;justify-content:center;gap:14px;padding:16px 20px;color:#778196;font-size:11px}.pagination .secondary-button{height:30px;padding:0 11px}.pagination .secondary-button:disabled{cursor:not-allowed;opacity:.45}
+.project-link { border: 0; background: transparent; padding: 0; color: var(--ink, #1d2a36); font: inherit; font-weight: 700; cursor: pointer; text-align: left; }
+.project-link:hover { color: #b4542d; text-decoration: underline; }
+.member-list { display: grid; gap: 10px; max-height: 360px; overflow: auto; }
+.member-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e8e1d8; border-radius: 10px; }
+.member-row small { display: block; color: #71808a; margin-top: 3px; }
