@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,6 +23,8 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Set;
+import java.util.LinkedHashSet;
 
 /** 当前OIDC主体的项目列表和项目创建API。 */
 @RestController
@@ -50,6 +55,38 @@ public class ProjectController {
         return ProjectItem.from(project);
     }
 
+    /** 查询当前项目的活动成员，仅Owner或Project Admin可见。 */
+    @GetMapping("/projects/{projectId}/members")
+    public java.util.List<MemberItem> members(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId) {
+        var principal = principal(user);
+        return repository.listMembers(principal.principalRef(), projectId).stream().map(MemberItem::from).toList();
+    }
+
+    /** 通过OIDC issuer+subject添加已认证主体，避免客户端选择内部UUID。 */
+    @PostMapping("/projects/{projectId}/members")
+    @ResponseStatus(HttpStatus.CREATED)
+    public MemberItem addMember(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId,
+                                @Valid @RequestBody MemberCreate body) {
+        var principal = principal(user);
+        String target = repository.findActivePrincipal(body.issuer().toString(), body.subject());
+        if (target == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "目标主体尚未完成企业身份认证");
+        return MemberItem.from(repository.addMember(principal.principalRef(), projectId, target, body.roles()));
+    }
+
+    /** 替换成员角色集合并保留项目Owner约束。 */
+    @PatchMapping(value = "/projects/{projectId}/members/{principalRef}", consumes = "application/merge-patch+json")
+    public MemberItem replaceRoles(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId,
+                                   @PathVariable UUID principalRef, @Valid @RequestBody RolesUpdate body) {
+        return MemberItem.from(repository.replaceMemberRoles(principal(user).principalRef(), projectId, principalRef.toString(), body.roles()));
+    }
+
+    /** 立即撤销成员资格，禁止移除项目最后一名Owner。 */
+    @DeleteMapping("/projects/{projectId}/members/{principalRef}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeMember(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId, @PathVariable UUID principalRef) {
+        repository.removeMember(principal(user).principalRef(), projectId, principalRef.toString());
+    }
+
     /** 从Spring已验证的OIDC会话派生主体，不采信请求载荷中的操作者字段。 */
     private ProjectRepository.PrincipalRecord principal(OidcUser user) {
         if (user == null || user.getIssuer() == null || user.getSubject() == null || user.getSubject().isBlank()) {
@@ -71,6 +108,16 @@ public class ProjectController {
                                 Map<@Size(max = 64) String, @Size(max = 256) String> techStack) {}
 
     public record ProjectPage(java.util.List<ProjectItem> items, int page, int pageSize, long total) {}
+
+    public record MemberCreate(@NotBlank @Size(max = 512) String issuer,
+                               @NotBlank @Size(max = 512) String subject,
+                               @jakarta.validation.constraints.NotEmpty Set<String> roles) {}
+    public record RolesUpdate(@jakarta.validation.constraints.NotEmpty Set<String> roles) {}
+    public record MemberItem(UUID principalRef, String displayName, Set<String> roles, Instant joinedAt) {
+        static MemberItem from(ProjectRepository.MemberRecord value) {
+            return new MemberItem(UUID.fromString(value.principalRef()), value.displayName(), value.roles(), value.joinedAt());
+        }
+    }
 
     public record ProjectItem(long id, String name, String description, Map<String, String> techStack,
                               UUID ownerRef, String currentPhase, String gateStatus, int openIssueCount,

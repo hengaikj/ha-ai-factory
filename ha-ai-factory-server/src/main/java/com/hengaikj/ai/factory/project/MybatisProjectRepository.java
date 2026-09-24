@@ -8,6 +8,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import java.util.Arrays;
 import java.util.UUID;
 import org.springframework.security.access.AccessDeniedException;
 
@@ -37,6 +40,12 @@ public class MybatisProjectRepository implements ProjectRepository {
         return new PrincipalRecord(ref, displayName);
     }
 
+    /** 解析成员管理请求中的OIDC身份，不接受客户端伪造内部主体UUID。 */
+    @Override
+    public String findActivePrincipal(String issuer, String subject) {
+        return principals.findActiveRefByOidc(issuer, subject);
+    }
+
     /** 在单一事务内创建项目、活动Owner成员及OWNER角色。 */
     @Override
     @Transactional
@@ -62,6 +71,72 @@ public class MybatisProjectRepository implements ProjectRepository {
                 .stream().map(this::toRecord).toList();
         return new ProjectPage(items, page, pageSize, projects.countActiveForPrincipal(principalRef, normalized));
     }
+
+    /** 仅向项目Owner或管理员暴露活动成员和角色。 */
+    @Override
+    public List<MemberRecord> listMembers(String principalRef, long projectId) {
+        requireProjectAdmin(principalRef, projectId);
+        return memberships.listActive(projectId).stream().map(row -> new MemberRecord(row.getPrincipalRef(), row.getDisplayName(), roles(row.getRoles()), row.getJoinedAt())).toList();
+    }
+
+    /** 在事务内激活已认证主体并写入其全部项目角色。 */
+    @Override
+    @Transactional
+    public MemberRecord addMember(String principalRef, long projectId, String targetPrincipalRef, Set<String> roles) {
+        requireProjectAdmin(principalRef, projectId);
+        validateRoles(roles);
+        if (memberships.countActivePrincipal(targetPrincipalRef) == 0) throw new AccessDeniedException("目标主体尚未完成企业身份认证");
+        memberships.activateMember(projectId, targetPrincipalRef);
+        replaceRoles(projectId, targetPrincipalRef, roles, principalRef);
+        return member(projectId, targetPrincipalRef);
+    }
+
+    /** 替换角色前校验Owner保留规则，角色变化立即生效。 */
+    @Override
+    @Transactional
+    public MemberRecord replaceMemberRoles(String principalRef, long projectId, String targetPrincipalRef, Set<String> roles) {
+        requireProjectAdmin(principalRef, projectId);
+        validateRoles(roles);
+        if (!roles.contains("OWNER") && memberships.countOwners(projectId) <= 1 && memberships.listActive(projectId).stream().anyMatch(m -> m.getPrincipalRef().equals(targetPrincipalRef) && roles(m.getRoles()).contains("OWNER"))) {
+            throw new IllegalArgumentException("项目必须至少保留一名Owner");
+        }
+        replaceRoles(projectId, targetPrincipalRef, roles, principalRef);
+        return member(projectId, targetPrincipalRef);
+    }
+
+    /** 撤销成员资格并禁止移除项目最后一名Owner。 */
+    @Override
+    @Transactional
+    public void removeMember(String principalRef, long projectId, String targetPrincipalRef) {
+        requireProjectAdmin(principalRef, projectId);
+        boolean owner = memberships.listActive(projectId).stream().anyMatch(m -> m.getPrincipalRef().equals(targetPrincipalRef) && roles(m.getRoles()).contains("OWNER"));
+        if (owner && memberships.countOwners(projectId) <= 1) throw new IllegalArgumentException("项目必须至少保留一名Owner");
+        if (memberships.revokeMember(projectId, targetPrincipalRef) == 0) throw new IllegalArgumentException("成员不存在或已被移除");
+        if (owner) memberships.updateOwnerRef(projectId, memberships.listActive(projectId).stream().filter(m -> roles(m.getRoles()).contains("OWNER")).findFirst().orElseThrow().getPrincipalRef());
+    }
+
+    /** 复用服务端角色查询，禁止客户端绕过项目管理权限。 */
+    private void requireProjectAdmin(String principalRef, long projectId) {
+        if (memberships.countProjectAdmin(projectId, principalRef) == 0) throw new AccessDeniedException("需要Owner或Project Admin角色");
+    }
+
+    private void validateRoles(Set<String> roles) {
+        if (roles == null || roles.isEmpty() || !roles.stream().allMatch(Set.of("OWNER", "PROJECT_ADMIN", "ORCHESTRATOR", "ENGINEER", "REVIEWER")::contains)) throw new IllegalArgumentException("角色集合无效");
+    }
+
+    private void replaceRoles(long projectId, String target, Set<String> roles, String assignedBy) {
+        memberships.deleteRoles(projectId, target);
+        roles.forEach(role -> memberships.insertRole(projectId, target, role, assignedBy));
+        if (roles.contains("OWNER")) memberships.updateOwnerRef(projectId, target);
+    }
+
+    private MemberRecord member(long projectId, String target) {
+        return memberships.listActive(projectId).stream().filter(m -> m.getPrincipalRef().equals(target)).findFirst()
+                .map(m -> new MemberRecord(m.getPrincipalRef(), m.getDisplayName(), roles(m.getRoles()), m.getJoinedAt()))
+                .orElseThrow(() -> new IllegalArgumentException("成员不存在"));
+    }
+
+    private Set<String> roles(String raw) { return raw == null || raw.isBlank() ? Set.of() : new LinkedHashSet<>(Arrays.asList(raw.split(","))); }
 
     /** 将技术栈映射序列化为MySQL JSON字段内容。 */
     private String serialize(Map<String, String> value) {

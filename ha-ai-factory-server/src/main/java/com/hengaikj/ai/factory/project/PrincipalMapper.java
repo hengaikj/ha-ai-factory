@@ -18,4 +18,8 @@ public interface PrincipalMapper {
     /** 只解析当前仍启用的已登记OIDC主体。 */
     @Select("SELECT principal_ref FROM principals WHERE oidc_issuer=#{issuer} AND oidc_subject=#{subject} AND is_active=TRUE")
     String findActiveRef(@Param("issuer") String issuer, @Param("subject") String subject);
+
+    /** 仅解析已经完成过OIDC认证且仍启用的目标主体。 */
+    @Select("SELECT principal_ref FROM principals WHERE oidc_issuer=#{issuer} AND oidc_subject=#{subject} AND is_active=TRUE")
+    String findActiveRefByOidc(@Param("issuer") String issuer, @Param("subject") String subject);
 }
