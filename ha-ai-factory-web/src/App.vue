@@ -328,10 +328,10 @@ onMounted(loadProjects)
       <nav class="navigation">
         <button class="nav-item selected" type="button"><span class="nav-icon" aria-hidden="true">▦</span><span>项目</span></button>
         <button class="nav-item" type="button" :disabled="viewState !== 'ready'" @click="projects[0] && openTasks(projects[0])"><span class="nav-icon" aria-hidden="true">⌘</span><span>任务</span></button>
-        <button class="nav-item" type="button" disabled><span class="nav-icon" aria-hidden="true">▤</span><span>交付物</span></button>
-        <button class="nav-item" type="button" disabled><span class="nav-icon" aria-hidden="true">✓</span><span>Gate</span></button>
-        <button class="nav-item" type="button" disabled><span class="nav-icon" aria-hidden="true">◇</span><span>Open Issues</span></button>
-        <button class="nav-item" type="button" disabled><span class="nav-icon" aria-hidden="true">✳</span><span>Agent Runtime</span></button>
+        <button class="nav-item" type="button" :disabled="viewState !== 'ready' || !projects.length" @click="projects[0] && openWorkspace(projects[0], 'deliverables')"><span class="nav-icon" aria-hidden="true">▤</span><span>交付物</span></button>
+        <button class="nav-item" type="button" :disabled="viewState !== 'ready' || !projects.length" @click="projects[0] && openWorkspace(projects[0], 'gates')"><span class="nav-icon" aria-hidden="true">✓</span><span>Gate</span></button>
+        <button class="nav-item" type="button" :disabled="viewState !== 'ready' || !projects.length" @click="projects[0] && openWorkspace(projects[0], 'issues')"><span class="nav-icon" aria-hidden="true">◇</span><span>Open Issues</span></button>
+        <button class="nav-item" type="button" :disabled="viewState !== 'ready' || !projects.length" @click="projects[0] && openWorkspace(projects[0], 'runtime')"><span class="nav-icon" aria-hidden="true">✳</span><span>Agent Runtime</span></button>
       </nav>
       <div class="sidebar-bottom">
         <div class="build-note"><span class="pulse"></span><span>项目工作台<br /><small>服务端授权数据</small></span></div>
