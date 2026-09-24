@@ -231,6 +231,12 @@ export function createProject(input: { name: string; description?: string; csrfT
 /** 读取单个项目详情。 */
 export function getProject(projectId: number): Promise<Project> { return request(`/projects/${projectId}`) }
 
+/** 更新项目元数据，服务端按项目管理角色授权。 */
+export function updateProject(input: { projectId: number; name?: string; description?: string; techStack?: Record<string, string>; csrfToken: string }): Promise<Project> {
+  const { projectId, csrfToken, ...body } = input
+  return request(`/projects/${projectId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/merge-patch+json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body) })
+}
+
 /** 注销当前服务器端会话。 */
 export function logout(csrfToken: string): Promise<void> { return request('/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } }) }
 

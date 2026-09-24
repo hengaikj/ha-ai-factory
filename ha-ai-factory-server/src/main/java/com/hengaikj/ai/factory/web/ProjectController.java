@@ -61,6 +61,12 @@ public class ProjectController {
         return ProjectItem.from(repository.getProject(principal(user).principalRef(), projectId));
     }
 
+    /** 更新项目名称、描述或技术栈元数据。 */
+    @PatchMapping(value = "/projects/{projectId}", consumes = "application/merge-patch+json")
+    public ProjectItem update(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId, @Valid @RequestBody ProjectUpdate body) {
+        return ProjectItem.from(repository.updateProject(principal(user).principalRef(), projectId, body.name(), body.description(), body.techStack()));
+    }
+
     /** 查询当前项目的活动成员，仅Owner或Project Admin可见。 */
     @GetMapping("/projects/{projectId}/members")
     public java.util.List<MemberItem> members(@AuthenticationPrincipal OidcUser user, @PathVariable long projectId) {
@@ -239,6 +245,8 @@ public class ProjectController {
 
     public record ProjectCreate(@NotBlank @Size(max = 128) String name,
                                 @Size(max = 4000) String description,
+                                Map<@Size(max = 64) String, @Size(max = 256) String> techStack) {}
+    public record ProjectUpdate(@Size(max = 128) String name, @Size(max = 4000) String description,
                                 Map<@Size(max = 64) String, @Size(max = 256) String> techStack) {}
 
     public record ProjectPage(java.util.List<ProjectItem> items, int page, int pageSize, long total) {}

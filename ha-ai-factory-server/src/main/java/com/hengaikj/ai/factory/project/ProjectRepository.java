@@ -12,6 +12,7 @@ public interface ProjectRepository {
     ProjectRecord createProject(String principalRef, String name, String description, Map<String, String> techStack);
     ProjectPage listProjects(String principalRef, String query, int page, int pageSize);
     ProjectRecord getProject(String principalRef, long projectId);
+    ProjectRecord updateProject(String principalRef, long projectId, String name, String description, Map<String, String> techStack);
     List<MemberRecord> listMembers(String principalRef, long projectId);
     MemberRecord addMember(String principalRef, long projectId, String targetPrincipalRef, Set<String> roles);
     MemberRecord replaceMemberRoles(String principalRef, long projectId, String targetPrincipalRef, Set<String> roles);

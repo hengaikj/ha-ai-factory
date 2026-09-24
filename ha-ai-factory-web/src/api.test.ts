@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { addProjectMember, beginLogin, createProject, createProjectDeliverable, createProjectTask, decideGate, decideProjectIssue, getCurrentSession, getProjects, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, requestAgentRun, reviewProjectDeliverable, updateProjectTask, submitGate } from './api'
+import { addProjectMember, beginLogin, createProject, createProjectDeliverable, createProjectTask, decideGate, decideProjectIssue, getCurrentSession, getProjects, getProjectActivity, getProjectDeliverables, getProjectGates, getProjectIssues, getProjectMembers, getProjectResources, getProjectTasks, getRuntimeConfigStatus, requestAgentRun, reviewProjectDeliverable, updateProject, updateProjectTask, submitGate } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -166,5 +166,12 @@ describe('contract API client', () => {
     await expect(reviewProjectDeliverable({ deliverableId: 4, outcome: 'APPROVED', comment: '通过', csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ outcome: 'APPROVED' })
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/tasks/3', expect.objectContaining({ method: 'PATCH' }))
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/deliverables/4/reviews', expect.objectContaining({ method: 'POST' }))
+  })
+
+  it('updates project metadata with merge-patch and CSRF protection', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ id: 8, name: '新名称' }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(updateProject({ projectId: 8, name: '新名称', csrfToken: 'c'.repeat(32) })).resolves.toMatchObject({ name: '新名称' })
+    expect(fetchMock).toHaveBeenCalledWith('/projects/8', expect.objectContaining({ method: 'PATCH', headers: expect.objectContaining({ 'Content-Type': 'application/merge-patch+json' }) }))
   })
 })

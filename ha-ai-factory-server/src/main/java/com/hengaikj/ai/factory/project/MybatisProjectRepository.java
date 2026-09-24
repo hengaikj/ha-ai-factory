@@ -95,6 +95,15 @@ public class MybatisProjectRepository implements ProjectRepository {
         return toRecord(row);
     }
 
+    /** 仅项目Owner或管理员可修改元数据，更新后返回服务端最新快照。 */
+    @Override @Transactional
+    public ProjectRecord updateProject(String principalRef, long projectId, String name, String description, Map<String, String> techStack) {
+        requireProjectAdmin(principalRef, projectId);
+        if (name != null && name.isBlank()) throw new IllegalArgumentException("项目名称不能为空");
+        projects.updateMetadata(projectId, name == null ? null : name.trim(), description, techStack == null ? null : serialize(techStack));
+        return getProject(principalRef, projectId);
+    }
+
     /** 仅向项目Owner或管理员暴露活动成员和角色。 */
     @Override
     public List<MemberRecord> listMembers(String principalRef, long projectId) {

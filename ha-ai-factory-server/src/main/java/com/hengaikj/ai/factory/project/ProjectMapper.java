@@ -36,6 +36,9 @@ public interface ProjectMapper {
     /** 按项目成员关系读取单个项目及其摘要。 */
     @Select("SELECT p.id,p.name,p.description,p.tech_stack AS techStack,p.current_phase AS currentPhase,p.owner_ref AS ownerRef,p.created_at AS createdAt,p.updated_at AS updatedAt,COALESCE((SELECT CASE g.status WHEN 'READY_FOR_REVIEW' THEN 'PENDING' ELSE g.status END FROM project_gates g WHERE g.project_id=p.id AND g.phase=p.current_phase),'PENDING') AS gateStatus,(SELECT COUNT(*) FROM open_issues i WHERE i.project_id=p.id AND i.status IN ('OPEN','HUMAN_DECISION_REQUIRED','TRACKING')) AS openIssueCount FROM projects p JOIN project_members m ON m.project_id=p.id WHERE p.id=#{projectId} AND m.principal_ref=#{principalRef} AND m.membership_status='ACTIVE'")
     ProjectRow findActiveForPrincipal(@Param("principalRef") String principalRef, @Param("projectId") long projectId);
+    /** 更新项目元数据；空参数保留已有值以符合合并补丁语义。 */
+    @Update("UPDATE projects SET name=COALESCE(#{name},name), description=COALESCE(#{description},description), tech_stack=COALESCE(#{techStack},tech_stack) WHERE id=#{projectId}")
+    int updateMetadata(@Param("projectId") long projectId, @Param("name") String name, @Param("description") String description, @Param("techStack") String techStack);
     /** 更新项目生命周期阶段。 */
     @Update("UPDATE projects SET current_phase=#{targetPhase} WHERE id=#{projectId}") int updatePhase(@Param("projectId") long projectId, @Param("targetPhase") String targetPhase);
 
