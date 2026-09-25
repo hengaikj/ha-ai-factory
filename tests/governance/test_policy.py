@@ -14,10 +14,10 @@ class PolicyTest(unittest.TestCase):
 
     def test_local_context_can_never_allow_inspect(self):
         result = evaluate_gate({}, {"baseline_verified":True,"scope_verified":True,"content_quality":"PASS","contract_coverage":"PASS","implementation_quality":"PASS","human_approval":"APPROVED"}, "inspect")
-        self.assertEqual("REVIEW_REQUIRED", result["formal_readiness"])
+        self.assertEqual("SINGLE_ACCOUNT_REVIEW", result["formal_readiness"])
         self.assertNotEqual("ALLOW", result["decision"])
 
     def test_advisory_mode_reports_review_without_allowing_execution(self):
         result = evaluate_gate({}, {"baseline_verified":True,"scope_verified":True,"content_quality":"PASS","contract_coverage":"PASS","implementation_quality":"PASS","human_approval":"PENDING"}, "inspect")
-        self.assertEqual("REVIEW_REQUIRED", result["decision"])
-        self.assertEqual("REVIEW_REQUIRED", result["formal_readiness"])
+        self.assertEqual("SELF_REVIEW_REQUIRED", result["decision"])
+        self.assertEqual("SINGLE_ACCOUNT_REVIEW", result["formal_readiness"])

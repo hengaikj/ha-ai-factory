@@ -38,4 +38,7 @@ def evaluate_gate(work: dict[str, Any], context: dict[str, Any], action: str) ->
     elif enforcement.get("mode") == "advisory" and action not in policy["blocked_actions"]:
         result["formal_readiness"] = "REVIEW_REQUIRED"
         result["decision"] = "REVIEW_REQUIRED"
+    elif enforcement.get("mode") == "single_account" and action not in policy["blocked_actions"]:
+        result["formal_readiness"] = "SINGLE_ACCOUNT_REVIEW"
+        result["decision"] = "SELF_REVIEW_REQUIRED"
     return result
