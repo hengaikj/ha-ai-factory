@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
-  "mode": "advisory",
-  "mode_values": ["advisory", "strict"],
+  "mode": "single_account",
+  "mode_values": ["advisory", "strict", "single_account"],
   "ci": {
     "required_check_name": "HA Governance / gate",
     "required": false,
@@ -9,7 +9,8 @@
   },
   "review": {
     "independent_reviewer_required": false,
-    "minimum_approvals": 0
+    "minimum_approvals": 0,
+    "execution_account": "hengaikj"
   },
   "branch": {
     "direct_push_allowed": true,
@@ -19,5 +20,5 @@
   "transition": {
     "strict_requires": ["负责人接受治理基线", "独立 Reviewer 复审", "CI 失败阻断演练", "分支保护配置证据"]
   },
-  "note": "advisory 模式仅报告结果；禁止动作仍保持失败关闭。"
+  "note": "single_account 模式允许 hengaikj 完成实现与自审；独立审查状态必须单独标注，禁止动作仍保持失败关闭。"
 }
