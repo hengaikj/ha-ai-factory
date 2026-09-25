@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "status": "PROPOSED",
+  "blocked_actions": ["run_model", "run_runtime", "run_migration", "deploy", "merge"],
+  "required_quality": ["content_quality", "contract_coverage", "implementation_quality"],
+  "note": "候选策略只供离线评估；可信门禁仍需独立采用和 CI 配置。"
+}

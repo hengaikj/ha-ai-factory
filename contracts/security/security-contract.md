@@ -1,16 +1,16 @@
-# Security Contract（Draft）
+# Security Contract
 
-文档状态：草案 / Contract Gate 未批准
+文档状态：M02 安全契约已通过全局 Contract Gate；Laya Runtime 专项 Contract Gate 已独立复审 PASS
 适用范围：已批准 MVP 的多项目管理、工程流程、评审、审计与 Agent Runtime  兼容基线：`docs/requirement/requirement-baseline.md`、`docs/product/prd.md`、`docs/design/ux-ui-spec.md`
 
-本文件记录可先行确定的安全约束和仍须人工决定的安全契约。它不是已批准的认证方案或权限矩阵。所有 `HUMAN_DECISION_REQUIRED` 项须由指定决策角色确认；Contract Gate 通过前不得据此实施认证、授权或外部执行。
+本文件记录已批准的安全约束，以及 M02 对后续能力的明确延期。Laya Runtime 后续能力以第 4 节及独立专项 Contract 为准。
 
 ## 1. 资产与信任边界
 
 - 项目、任务、交付物、评审与 Gate 记录、Open Issues、运行配置、Agent 执行结果和审计事件属于受保护的项目数据。
 - 浏览器/API 客户端、后端服务、Agent Runtime、模型提供方、工具和文件/证据来源是不同信任边界。
 - 客户端提供的 `projectId`、角色、Reviewer 身份、模型/工具清单或 Gate 状态均不得作为授权依据；后端必须从已认证主体及获批服务端配置进行校验。
-- OpenAPI 中的 `actorRef` / `ownerRef` 是身份引用字段，其权威来源、格式及生命周期待 HD-001 决定。
+- API 中的 `principalRef` 是系统内部 UUID，身份目录以 OIDC `(issuer, subject)` 唯一关联人类主体；客户端传入的操作者/角色引用不得用于身份认证或授权。
 
 ## 2. Secret 与 Token
 
@@ -21,9 +21,15 @@
 - 日志、错误详情和审计证据不得包含 Token、Secret 或完整敏感请求头。
 - Runtime 执行结果返回最小必要摘要，不能回传 Secret 或无关项目数据。
 
-### `HUMAN_DECISION_REQUIRED` — HD-001 / OI-002
+### HD-001 / OI-002 — 身份流与服务调用身份已确认（2026-09-23）
 
-需求负责人和运维负责人须确定部署边界、身份提供方、认证机制、Token 生命周期、服务间身份传递及凭据轮换要求。未决前不规定 JWT/OIDC/Session 等具体方案，也不批准任何匿名访问实现。
+- 人类用户通过部署配置指定的企业 OIDC Provider 登录，身份主键为 `(issuer, subject)`；不提供本地密码兜底。账号仅在完成认证且被加入项目后具有项目数据权限。
+- 浏览器流程使用 OIDC Authorization Code + PKCE。Web 后端维护服务器端会话；浏览器仅持有 `Secure`、`HttpOnly`、`SameSite` Cookie。会话空闲 30 分钟失效，绝对时限 8 小时；登出/禁用会话后立即拒绝后续请求。
+- API 根据服务器端会话绑定已认证主体，忽略客户端传入的操作者身份或角色。跨站状态变更请求还必须通过 CSRF 校验。
+- CSRF Token 通过已认证的当前会话响应提供，并由浏览器通过 `X-CSRF-Token` 请求头回传；所有状态变更请求校验 CSRF Token 和来源。会话 Cookie 为 `ha_session`，属性为 `Secure`、`HttpOnly`、`SameSite`、`Path=/`。
+- Agent Runtime 是独立服务主体。Runtime 只接受由 Web 后端签发、audience 限定且最长 10 分钟有效的服务间调用身份。调用上下文必须携带并审计原始用户 `(issuer, subject)`、项目和任务。Runtime 不接受浏览器 Cookie 或用户可伪造的 `actorRef` 作为服务身份。
+- 具体 IdP/issuer、签名密钥的托管/轮换方式由部署配置确定，不在此固定供应商；身份密钥不得进入仓库或客户端。
+- 部署环境契约须在开放服务前确定网络边界、issuer、签名密钥来源/轮换、TLS 终止及回调白名单；这不改变已批准的身份流和会话期限。
 
 ## 3. 项目数据隔离与授权
 
@@ -34,17 +40,26 @@
 - 项目列表只返回调用者有权访问的项目；审计和证据链接同样执行项目级访问检查。
 - 未获批的 Agent Runtime 配置一律拒绝启动；拒绝必须失败关闭，并返回可识别的 `HUMAN_DECISION_REQUIRED` 或 `CONFIG_NOT_APPROVED`。
 
-### `HUMAN_DECISION_REQUIRED` — HD-003 / OI-004
+### HD-003 / OI-004 — 已由项目负责人确认（2026-09-23）
 
-项目负责人须批准角色与动作权限矩阵，明确项目成员管理、任务分配、交付物评审、Gate 检查/最终批准、Issue 决策、资源下载、审计查看及 Runtime 启动的授权角色；同时确定角色兼任规则。
+只有显式项目成员可以访问该项目的数据；后端对每个请求执行 project-scoped 授权。角色为可组合的项目角色：
 
-在矩阵批准前，以下禁止规则作为契约基线：
+| 角色 | 已批准的权限范围 | 明确禁止/边界 |
+| --- | --- | --- |
+| Owner | 管理项目和成员；拥有项目级管理权限。 | 每项目至少保留一名 Owner；不能评审自己提交、执行或负责决策的对象。 |
+| Project Admin | 管理项目成员和项目设置。 | 不因管理员身份自动获得 Gate/交付物审批权；对象级独立性规则仍适用。 |
+| Orchestrator | 管理任务分配和流程状态，协调项目工作。 | 无审批权；不得批准自己的 Review。 |
+| Engineer | 处理分配给自己的任务、提交交付物。 | 不得评审自己提交/执行/负责决策的评审对象。 |
+| Reviewer | 对获授权项目内的交付物、Gate 和 Issue 进行评审/决策。 | 对象提交者、任务执行者及该对象决策责任人不得评审该对象；须由后端逐对象检查冲突。 |
 
-- Agent 不得批准 Gate 或交付物评审。
-- Reviewer 必须独立于被评审工作的执行者；Orchestrator 不得批准自己的 Review。
-- 项目数据不得仅凭客户端提供的角色或身份引用访问。
+Owner/Admin 可加入或移除成员；移除生效后所有后续请求立即拒绝，服务端不得使用尚未失效的授权缓存允许请求继续。每项目至少一名 Owner；成员加入/角色调整/移除均写入审计事件。角色可组合，但冲突校验以具体对象为准。Agent Runtime 主体只按 HD-002 批准的配置执行，不具备人工评审或审批权限。所有未明确允许的动作均拒绝；客户端给出的角色、Reviewer 标记或 `actorRef` 不能授予权限。
 
-上述规则如何映射为主体、角色、权限和审核冲突检测，须由 HD-003 决定。
+### Gate Reviewer 冲突集合（HD-003）
+
+- Owner、Project Admin 或 Orchestrator 可提交 Gate 评审包；提交人由当前服务器会话派生。提交必须指定同项目的 `decisionOwnerRef`，并列出至少一个范围任务或交付物；提交不代表审批。
+- 提交时，服务端在单一事务中校验 scope 对象都属于 Gate 项目，并冻结冲突主体快照：Gate 提交人、Gate 决策责任人、范围任务的责任主体及范围交付物的提交人。
+- 每个 Gate Check 决策和最终 Gate 决策都必须将已认证 Reviewer 与该冲突快照比对。命中任一主体时返回 `403 REVIEW_CONFLICT`；不得信任请求体的 `reviewerRef`、角色字段或证据引用来替代服务端关系。
+- Gate 返回后重新提交时，服务端在单一事务中替换范围和冲突快照。缺失、跨项目或无法验证的关联必须失败关闭，不能继续评审。
 
 ## 4. Agent Runtime 安全
 
@@ -56,46 +71,60 @@
 - 工具调用按获批 allowlist 和操作范围校验；提示注入或任务正文不得改变授权范围。
 - Agent 输出是不可信输入；不能直接成为 Gate 批准、人工决策或特权配置变更。
 
-### `HUMAN_DECISION_REQUIRED` — HD-002 / OI-003
+### HD-002 / OI-003 — M02 明确延期
 
-项目负责人和技术负责人须确认：模型提供方及模型标识、可用工具、每类工具允许的操作与副作用、配置批准角色、配置有效期/撤销方式、Secret 来源和审计要求。决策完成前 Agent Runtime 保持关闭；API Contract 的运行接口只作为待审结构，不得启用真实执行。
+M02 不启用真实 Agent Runtime，不调用模型或工具，不配置或读取凭据，也不产生外部副作用。M02 只保留配置状态查询和失败关闭接口：配置缺失、未批准、拒绝、过期或校验失败均拒绝启动并返回可识别错误。真实执行、模型/工具白名单、批准撤销和 Secret 契约须由后续独立 Contract 决定。
+
+### Laya Runtime 后续范围 — 专项 Contract Gate PASS（2026-09-23）
+
+- Laya 仅作为后续 Agent Runtime 的内部推理 provider；M02 的真实 Runtime 执行、模型配置和凭据延期不变。
+- Java 后端先校验 OIDC 会话和项目/任务权限，再签发最长 10 分钟、audience 限定且带原始 issuer+subject 的服务身份给 Runtime。Runtime 拒绝浏览器 Cookie 和客户端伪造 actor。
+- Runtime 到 Laya 生产调用须经过内部网络并使用工作负载 mTLS；证书由受控环境签发、托管和轮换。静态 Bearer API key 不得作为唯一生产认证。公网、浏览器和其他项目工作负载不可达 Laya。
+- 只发送脱敏的最小任务摘要，不超过 4,000 字符；不发送项目/用户标识、完整正文、凭据、系统提示或工具参数。运行问题来自版本化 allowlist，choice 最多 32 个标签，score 最多 10 个有序等级。
+- 连接超时 2 秒、每次尝试总超时 5 秒；最多重试一次，等待 200 毫秒，总操作时限最长 10.2 秒。仅连接失败、超时或 HTTP 503 使用相同请求重试。认证、4xx、schema、模型版本和响应错误不重试；所有失败均停止下游动作并转人工处理。
+- Laya 输出不具备授权、审批或自动副作用效力。审计记录 request ID、项目/任务、调用主体摘要、模板/模型版本、权重摘要、结果类别、状态、错误码、时间和人工升级标志。原文、完整提示词和 Secret 不进入普通日志。
+- Runtime 到 Laya 的请求 ID 由网关按单次上游交换关联并回显，Runtime 必须比对后才接收响应。网关在调用前使用锁定 checkpoint tokenizer 执行每问题 token 预算，并在入口实施每实例单并发、零排队；过长输入、饱和请求须在触达推理前拒绝。上游异常 detail 不得透传，必须映射为专项 API 定义的稳定错误码和静态安全提示。
+- 模型 revision、权重摘要、依赖和许可证必须在部署清单固定；禁止运行时公网下载。生产启用前完成许可证审查和负责人批准的中文业务离线评测；未达标保持禁用。
 
 ## 5. 交付物与证据
 
-- 证据引用不得绕过访问控制；下载/查看前要按所属项目进行授权。
+- M02 API 仅暴露交付物和资源元数据，不提供仓库内容读取/下载接口；未来如批准内容访问，须先由独立 Contract 定义检索机制、项目授权和安全边界。
 - 审计中保存稳定的来源引用、版本和内容摘要（若可用），不复制不必要的敏感文件内容。
 
-### `HUMAN_DECISION_REQUIRED` — HD-004 / OI-005
+### HD-004 / OI-005 — M02 明确延期范围
 
-项目负责人和技术负责人须确定仓库文件、系统内编辑内容或二者共同的权威来源，版本/冲突规则、下载策略、证据保留期限及引用失效处理。决定前 `sourceRef` 仅为抽象引用，不批准存储方式、公开 URL 或预签名 URL 生命周期。
+M02 以仓库文件为交付物权威来源，仅记录仓库路径、版本/提交引用和内容摘要。M02 不提供系统内编辑、文件托管、冲突合并或公开下载 URL；完整文件存储、访问和保留契约延期至后续独立 Contract。
 
 ## 6. 审计与安全事件
 
 - 对项目、任务、交付物评审、Gate、Open Issue、权限/Runtime 配置及 Agent 执行的关键状态变化记录操作者、对象、前后状态、时间、说明和相关证据引用。
 - 审计记录对普通项目工作流只读；更正必须追加新事件，不得无痕修改历史。
-- 审计访问和导出权限、保留期限、删除策略、备份加密及安全事件响应时限待 HD-005（OI-007）与 HD-003 确认。
+- 审计访问/导出权限及其他非核心模块的细分授权、保留期限、删除策略、备份加密及安全事件响应时限，需在后续模块契约和 HD-005（OI-007）中明确。
 
 ## 7. 错误与数据保护
 
 - 未认证、无权、跨项目资源、Gate 未通过、Runtime 未授权和输入校验错误须使用可区分的错误代码，不泄露目标项目是否存在于无权主体。
 - 任何外部副作用必须在服务端验证显式批准的配置和动作范围。
-- 性能限流、请求体大小、附件大小、超时、加密、备份及日志保留等定量安全/运维要求属于 HD-005（OI-007），由运维负责人和项目负责人确认。
+- M02 采用默认运行边界，不作正式 SLA、并发、响应、容量、审计保留、备份 RPO/RTO 或合规承诺。性能限流、加密、备份和保留等定量要求属于后续 HD-005（OI-007）运维契约。
 
 ## 8. 决策状态与 Gate 影响
 
 | 决策编号 | 关联 Open Issue | 决策内容 | 状态 | Gate 处理 |
 | --- | --- | --- | --- | --- |
-| HD-001 | OI-002 | 部署、身份提供方、认证机制与 Token 生命周期 | `HUMAN_DECISION_REQUIRED` | 阻塞认证与身份绑定契约批准。 |
-| HD-002 | OI-003 | 模型、工具、权限配置和人工批准/撤销策略 | `HUMAN_DECISION_REQUIRED` | 阻塞 Agent Runtime 执行契约；Runtime 保持关闭。 |
-| HD-003 | OI-004 | 角色权限矩阵、角色兼任及独立评审约束 | `HUMAN_DECISION_REQUIRED` | 阻塞最终授权矩阵批准。 |
-| HD-004 | OI-005 | 交付物权威来源、版本和证据访问/保留策略 | `HUMAN_DECISION_REQUIRED` | 阻塞文件存储/下载契约批准。 |
-| HD-005 | OI-007 | 性能、安全运维、审计保留和备份等定量指标 | `HUMAN_DECISION_REQUIRED` | 定量指标未决前不作性能/保留合规承诺。 |
+| HD-001 | OI-002 | 企业 OIDC、`(issuer, subject)` 身份键、Auth Code + PKCE、服务器端会话、Cookie 属性/时限、Runtime 服务身份与原始发起人上下文 | `DECIDED_WITH_ENVIRONMENT_CONFIGURATION` | Runtime 调用身份最长 10 分钟；IdP/issuer、部署网络边界与密钥配置由环境契约落实。 |
+| HD-002 | OI-003 | 模型、工具、权限配置和人工批准/撤销策略 | `EXPLICITLY_DEFERRED_FOR_M02` | M02 不启用真实 Runtime，仅保留状态和失败关闭接口。 |
+| HD-003 | OI-004 | 显式项目成员、五个可组合项目角色、成员生命周期、对象级 Reviewer 冲突规则及 Agent 禁止审批 | `DECIDED` | M02 Project/Member/Gate API、数据库和安全契约已由独立 Reviewer scoped PASS；其余模块仍需各自契约审查。 |
+| HD-004 | OI-005 | 交付物权威来源、版本和证据访问/保留策略 | `EXPLICITLY_DEFERRED_FOR_M02` | M02 仅引用仓库文件，不提供系统编辑、文件托管或公开下载。 |
+| HD-005 | OI-007 | 性能、安全运维、审计保留和备份等定量指标 | `EXPLICITLY_DEFERRED_FOR_M02` | M02 不作正式 SLA、保留、备份或合规承诺。 |
+| HD-006 | OI-006 | Git、CI、测试编排、通知及其他外部集成 | `EXPLICITLY_DEFERRED_FOR_M02` | M02 不配置第三方凭据或触发外部集成。 |
 
-OI-006 的第三方集成清单需由项目负责人和技术负责人确认；未确认纳入 MVP 前，本草案不承诺代码托管、CI、通知等集成。OI-008 的组织级多租户和客户视图不属于已批准 MVP 范围。OI-009 在 Release 阶段形成发布契约。
+### HD-006 / OI-006 — M02 明确延期
+
+M02 不接入 Git、CI、测试编排、通知或其他外部服务；仅保留未来扩展边界。任何外部集成须由后续独立 Contract 明确身份、权限、失败处理和审计要求。OI-008 的组织级多租户和客户视图不属于已批准 MVP 范围。OI-009 在 Release 阶段形成发布契约。
 
 ## 9. 批准状态
 
-- API Contract：草案，待决策 HD-001 至 HD-005 关闭或由负责人明确将对应能力排除/延后后重新提交审查。
-- Database Contract：草案，身份引用、交付物来源、Runtime 配置与审计保留仍待决策。
-- Security Contract：草案，身份认证和角色权限矩阵未批准。
-- Gate：`pending`；本文件未授权开始业务代码、数据库迁移或外部 Agent 执行。
+- API Contract：M02 Project/Member/Gate scoped review 为 PASS；Global Contract Gate 为 PASS；Laya Runtime 专项 Gate 独立复审 PASS。
+- Database Contract：M02 草案已同步仓库文件引用、Runtime 未执行状态和默认运行边界；真实执行、文件托管与正式运维指标延期。
+- Security Contract：HD-001、HD-003 已确认，HD-002/HD-004/HD-005/HD-006 已明确延期；M02 scoped review、Global Contract Gate 和 Laya Runtime 专项 Gate 均为 PASS。
+- Gate：M02 Global Contract Gate 和 Laya Runtime 专项 Contract Gate 均为 PASS；M02 真实执行仍延期。生产模型调用须在模型制品锁定、许可审查和离线评测完成前保持禁用。

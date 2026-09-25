@@ -1,0 +1,32 @@
+[project]
+name = "ha-ai-agent-runtime"
+version = "0.1.0"
+description = "HA AI Software Factory 内部决策运行时"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115,<1.0",
+    "httpx>=0.28,<1.0",
+    "pydantic>=2.10,<3.0",
+    "uvicorn[standard]>=0.34,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<10.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<10.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.setuptools.packages.find]
+include = ["app*"]

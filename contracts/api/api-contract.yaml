@@ -1,27 +1,42 @@
 openapi: 3.0.3
 info:
   title: HA AI Software Factory API Contract
-  version: 0.1.0-draft
+  version: 0.2.0-draft
   description: >-
-    Contract draft for the approved MVP. This document is not approved for
-    implementation until Contract Gate passes and the decisions in
-    ../contract-decisions.md are resolved or explicitly deferred.
-x-contract-status: draft
-x-human-decisions-required:
-  - HD-001
-  - HD-002
-  - HD-003
-  - HD-004
-  - HD-005
+    M02 Project / Member / Gate contract. Global Contract Gate is PASS.
+    HD-002, HD-004, HD-005 and HD-006 remain explicitly deferred for M02.
+    Laya Runtime inference is specified separately; its Contract Gate has passed,
+    but real Runtime execution remains disabled for M02 under the HD-002 deferral.
+x-contract-status: m02-scoped-approved-global-pass
+x-deferred-decisions:
+  HD-002: M02 does not enable real Agent Runtime execution or credentials.
+  HD-004: Repository files are authoritative; system editing and file hosting are deferred.
+  HD-005: M02 accepts default operational boundaries without formal SLA or retention guarantees.
+  HD-006: M02 has no Git, CI, test orchestration, notification, or other external integrations.
 servers:
   - url: https://{host}
-    description: Host and deployment topology are unresolved (OI-002).
+    description: Deployment-specific host; environment values are configured outside this contract.
     variables:
       host:
         default: api.example.invalid
-        description: Placeholder only; replace after OI-002 decision.
+        description: Example only; replace with the approved deployment host.
+security:
+  - sessionCookie: []
+x-csrf-protection:
+  applies-to: all state-changing operations authenticated by sessionCookie
+  header: X-CSRF-Token
+  token-source: CurrentSession.csrfToken
+  rejection: 403 application/problem+json
+x-runtime-service-identity:
+  issuer: Web backend
+  audience: ha-ai-agent-runtime
+  maximum-validity: PT10M
+  forwarded-human-identity: authenticated OIDC issuer+subject; project and task context are mandatory
+  browser-cookie-accepted-by-runtime: false
 tags:
+  - name: Authentication
   - name: Projects
+  - name: Members
   - name: Tasks
   - name: Deliverables
   - name: Gates
@@ -30,11 +45,72 @@ tags:
   - name: Activity
   - name: AgentRuntime
 paths:
+  /auth/login:
+    get:
+      tags: [Authentication]
+      security: []
+      summary: Begin enterprise OIDC sign-in
+      description: >-
+        The server starts Authorization Code + PKCE, creates one-time state and
+        nonce values, and redirects to the deployment-configured OIDC issuer.
+        No local-password flow is supported.
+      responses:
+        '302':
+          description: Redirect to the configured OIDC authorization endpoint.
+          headers:
+            Location: { schema: { type: string, format: uri } }
+        default: { $ref: '#/components/responses/Problem' }
+  /auth/callback:
+    get:
+      tags: [Authentication]
+      security: []
+      summary: Complete enterprise OIDC sign-in
+      description: >-
+        The server validates state, nonce, issuer, signature, audience and the
+        authorization code using the stored PKCE verifier. It resolves the
+        authenticated identity by issuer+subject, rotates any prior session,
+        sets the server-session cookie and redirects to the application.
+        Authorization codes and tokens are never returned to browser script.
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema: { type: string }
+        - name: state
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '303':
+          description: Sign-in completed; session cookie set by the server.
+          headers:
+            Location: { schema: { type: string } }
+            Set-Cookie: { schema: { type: string, description: Secure; HttpOnly; SameSite; server-managed session cookie. } }
+        default: { $ref: '#/components/responses/Problem' }
+  /auth/session:
+    get:
+      tags: [Authentication]
+      summary: Get the current authenticated principal
+      responses:
+        '200':
+          description: Current authenticated user summary.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentSession' }
+        default: { $ref: '#/components/responses/Problem' }
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Revoke the current server-side session
+      description: Requires CSRF validation; clears the cookie and invalidates the server-side session immediately.
+      responses:
+        '204': { description: Session revoked and cookie cleared. }
+        default: { $ref: '#/components/responses/Problem' }
   /projects:
     get:
       tags: [Projects]
       summary: List projects visible to the caller
-      description: Visibility and identity enforcement are pending HD-001/HD-003.
+      description: The authenticated principal sees only projects with active membership; roles are checked server-side.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -61,7 +137,7 @@ paths:
     post:
       tags: [Projects]
       summary: Create a project
-      description: Requires project-creation permission; exact policy is pending HD-003.
+      description: Any authenticated principal may create a project; the server assigns that caller the initial Owner membership.
       requestBody:
         required: true
         content:
@@ -73,6 +149,70 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Project' }
+        default: { $ref: '#/components/responses/Problem' }
+  /projects/{projectId}/members:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [Members]
+      summary: List project members and assigned roles
+      responses:
+        '200':
+          description: Active members and roles, visible to a project Owner or Project Admin; revoked memberships remain in audit history only.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ProjectMember' }
+        default: { $ref: '#/components/responses/Problem' }
+    post:
+      tags: [Members]
+      summary: Add an existing OIDC identity to a project
+      description: >-
+        Owner or Project Admin only. The identity must have authenticated at
+        least once; clients cannot choose an arbitrary principalRef. At least
+        one Owner must remain in the project.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectMemberCreate' }
+      responses:
+        '201':
+          description: Member added.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectMember' }
+        default: { $ref: '#/components/responses/Problem' }
+  /projects/{projectId}/members/{principalRef}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: principalRef
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Members]
+      summary: Replace a project member's roles
+      description: Owner or Project Admin only; role changes take effect immediately. The project must retain an Owner; ownerRef is reassigned to the earliest-joined remaining Owner if needed.
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema: { $ref: '#/components/schemas/ProjectMemberRolesUpdate' }
+      responses:
+        '200':
+          description: Updated member roles.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectMember' }
+        default: { $ref: '#/components/responses/Problem' }
+    delete:
+      tags: [Members]
+      summary: Remove a project member
+      description: Owner or Project Admin only; removal immediately revokes project access and cannot remove the last Owner. If the removed member is ownerRef, it is reassigned to the earliest-joined remaining Owner.
+      responses:
+        '204': { description: Membership revoked. }
         default: { $ref: '#/components/responses/Problem' }
   /projects/{projectId}:
     parameters:
@@ -186,7 +326,7 @@ paths:
     post:
       tags: [Deliverables]
       summary: Register a deliverable
-      description: Source-of-truth and storage semantics are pending HD-004.
+      description: For M02, repository files are authoritative; this operation stores only a repository reference, version, and optional content digest. System editing and file hosting are deferred under HD-004.
       requestBody:
         required: true
         content:
@@ -208,7 +348,7 @@ paths:
     post:
       tags: [Deliverables]
       summary: Record an independent deliverable review
-      description: Reviewer identity and role-separation rules are pending HD-003.
+      description: The authenticated Reviewer must hold the project Reviewer role and pass the object-level independence check defined in HD-003.
       requestBody:
         required: true
         content:
@@ -252,6 +392,34 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Gate' }
         default: { $ref: '#/components/responses/Problem' }
+  /gates/{gateId}/submission:
+    parameters:
+      - name: gateId
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    post:
+      tags: [Gates]
+      summary: Submit a gate for independent review
+      description: >-
+        Owner, Project Admin, or Orchestrator may submit the evidence package
+        before Reviewer checks begin. The server derives submittedByRef from the authenticated
+        session, validates every scoped task/deliverable belongs to the gate's
+        project, and records the designated decisionOwnerRef. At least one
+        scoped task or deliverable is required. This action does not approve
+        the gate.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GateSubmissionCreate' }
+      responses:
+        '200':
+          description: Gate queued for independent review.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Gate' }
+        default: { $ref: '#/components/responses/Problem' }
   /gates/{gateId}/checks/{checkId}/decision:
     parameters:
       - name: gateId
@@ -265,7 +433,13 @@ paths:
     post:
       tags: [Gates]
       summary: Record a gate-check result
-      description: Reviewer must be independent; authorization enforcement is pending HD-003.
+      description: >-
+        The Gate must be READY_FOR_REVIEW. The authenticated Reviewer must hold
+        the project Reviewer role and must
+        not match the gate submitter, designated decision owner, any scoped
+        task assignee, or any scoped deliverable submitter. The server derives
+        this conflict set and rejects conflicts with REVIEW_CONFLICT; request
+        fields cannot override it.
       requestBody:
         required: true
         content:
@@ -277,6 +451,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/GateCheck' }
+        '403':
+          description: Caller lacks Reviewer role or matches a principal in the Gate conflict snapshot.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         default: { $ref: '#/components/responses/Problem' }
   /gates/{gateId}/decision:
     parameters:
@@ -287,7 +466,11 @@ paths:
     post:
       tags: [Gates]
       summary: Submit final gate decision
-      description: Only an independent human Reviewer can approve; agents and Orchestrator cannot self-approve.
+      description: >-
+        All Gate Checks must be complete. Only an authenticated human Reviewer
+        with the project Reviewer role can decide. The server rejects the gate submitter, designated decision
+        owner, any scoped task assignee, or any scoped deliverable submitter
+        with REVIEW_CONFLICT. Agent and Orchestrator principals cannot approve.
       requestBody:
         required: true
         content:
@@ -299,6 +482,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Gate' }
+        '403':
+          description: Caller lacks Reviewer role or matches a principal in the Gate conflict snapshot.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         default: { $ref: '#/components/responses/Problem' }
   /projects/{projectId}/stage-transitions:
     parameters:
@@ -400,26 +588,6 @@ paths:
                 type: array
                 items: { $ref: '#/components/schemas/ProjectResource' }
         default: { $ref: '#/components/responses/Problem' }
-  /projects/{projectId}/resources/{resourceId}/content:
-    parameters:
-      - $ref: '#/components/parameters/ProjectId'
-      - name: resourceId
-        in: path
-        required: true
-        schema: { type: integer, format: int64, minimum: 1 }
-    get:
-      tags: [Resources]
-      summary: Read or download a template or rule
-      description: Authoritative source and retention policy remain subject to HD-004.
-      responses:
-        '200':
-          description: Resource content.
-          content:
-            application/octet-stream:
-              schema: { type: string, format: binary }
-            text/plain:
-              schema: { type: string }
-        default: { $ref: '#/components/responses/Problem' }
   /projects/{projectId}/activity:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
@@ -451,7 +619,7 @@ paths:
     get:
       tags: [AgentRuntime]
       summary: Get the execution-configuration status
-      description: Configuration fields and approver policy are pending HD-002.
+      description: M02 exposes configuration status only. Real model/tool execution and credentials are disabled under the explicit HD-002 deferral.
       responses:
         '200':
           description: Runtime configuration status; secrets are never returned.
@@ -468,10 +636,12 @@ paths:
         schema: { type: integer, format: int64, minimum: 1 }
     post:
       tags: [AgentRuntime]
-      summary: Start an approved Agent Runtime task
+      summary: Request Agent Runtime execution (disabled in M02)
       description: >-
-        Fail closed. Return HUMAN_DECISION_REQUIRED when OI-003 is unresolved,
-        or when configuration is missing, unapproved, expired, or invalid.
+        M02 always fails closed and does not start real execution. Return
+        CONFIG_NOT_APPROVED for every request because HD-002 execution is
+        explicitly deferred; configuration is missing, unapproved, expired,
+        or invalid states remain observable through config-status.
       requestBody:
         required: true
         content:
@@ -482,13 +652,8 @@ paths:
               properties:
                 requestKey: { type: string, format: uuid }
       responses:
-        '202':
-          description: Run accepted.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/AgentRun' }
         '409':
-          description: Configuration is not approved or task is not executable.
+          description: M02 execution is disabled under HD-002; no model, tool, or external side effect is started.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -510,6 +675,16 @@ paths:
               schema: { $ref: '#/components/schemas/AgentRun' }
         default: { $ref: '#/components/responses/Problem' }
 components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: ha_session
+      description: >-
+        Server-managed session established through enterprise OIDC Authorization
+        Code + PKCE. Secure, HttpOnly, SameSite, Path=/; 30-minute idle and
+        8-hour
+        absolute expiration. Mutating requests also require CSRF validation.
   parameters:
     ProjectId:
       name: projectId
@@ -531,15 +706,57 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
   schemas:
+    CurrentSession:
+      type: object
+      required: [principalRef, displayName, csrfToken]
+      properties:
+        principalRef: { type: string, format: uuid }
+        displayName: { type: string, maxLength: 256 }
+        csrfToken: { type: string, minLength: 32, description: Opaque per-session token; send as X-CSRF-Token for state-changing requests. }
+    ProjectMember:
+      type: object
+      required: [principalRef, displayName, roles, joinedAt]
+      properties:
+        principalRef: { type: string, format: uuid, description: Internal stable principal reference; OIDC issuer+subject are held server-side. }
+        displayName: { type: string, maxLength: 256 }
+        roles:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/ProjectRole' }
+        joinedAt: { type: string, format: date-time }
+    ProjectMemberCreate:
+      type: object
+      required: [issuer, subject, roles]
+      properties:
+        issuer: { type: string, format: uri, maxLength: 512 }
+        subject: { type: string, minLength: 1, maxLength: 512 }
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/ProjectRole' }
+    ProjectMemberRolesUpdate:
+      type: object
+      required: [roles]
+      additionalProperties: false
+      properties:
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/ProjectRole' }
+    ProjectRole:
+      type: string
+      enum: [OWNER, PROJECT_ADMIN, ORCHESTRATOR, ENGINEER, REVIEWER]
     Project:
       type: object
-      required: [id, name, currentPhase, gateStatus, openIssueCount, createdAt, updatedAt]
+      required: [id, name, ownerRef, currentPhase, gateStatus, openIssueCount, createdAt, updatedAt]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string, maxLength: 128 }
         description: { type: string, maxLength: 4000, nullable: true }
         techStack: { type: object, additionalProperties: { type: string } }
-        ownerRef: { type: string, maxLength: 256, description: Identity reference format pending HD-001. }
+        ownerRef: { type: string, format: uuid, description: Stable internal principal reference for the current primary Owner; OIDC issuer+subject remain server-side. }
         currentPhase: { type: string, maxLength: 64 }
         gateStatus: { type: string, enum: [PENDING, APPROVED, RETURNED, BLOCKED, HUMAN_DECISION_REQUIRED] }
         openIssueCount: { type: integer, minimum: 0 }
@@ -547,12 +764,11 @@ components:
         updatedAt: { type: string, format: date-time }
     ProjectCreate:
       type: object
-      required: [name, ownerRef]
+      required: [name]
       properties:
         name: { type: string, minLength: 1, maxLength: 128 }
         description: { type: string, maxLength: 4000 }
         techStack: { type: object, additionalProperties: { type: string } }
-        ownerRef: { type: string, maxLength: 256 }
     ProjectUpdate:
       type: object
       additionalProperties: false
@@ -560,7 +776,6 @@ components:
         name: { type: string, minLength: 1, maxLength: 128 }
         description: { type: string, maxLength: 4000, nullable: true }
         techStack: { type: object, additionalProperties: { type: string } }
-        ownerRef: { type: string, maxLength: 256 }
     Task:
       type: object
       required: [id, projectId, title, phase, status, createdAt, updatedAt]
@@ -570,7 +785,7 @@ components:
         title: { type: string, maxLength: 256 }
         description: { type: string, maxLength: 8000, nullable: true }
         phase: { type: string, maxLength: 64 }
-        assigneeRef: { type: string, maxLength: 256, nullable: true }
+        assigneeRef: { type: string, format: uuid, nullable: true, description: Human or service principal; null means unassigned. }
         assigneeRole: { type: string, maxLength: 64, nullable: true }
         status: { $ref: '#/components/schemas/TaskStatus' }
         deliverableIds:
@@ -588,7 +803,7 @@ components:
         title: { type: string, minLength: 1, maxLength: 256 }
         description: { type: string, maxLength: 8000 }
         phase: { type: string, maxLength: 64 }
-        assigneeRef: { type: string, maxLength: 256 }
+        assigneeRef: { type: string, format: uuid }
         assigneeRole: { type: string, maxLength: 64 }
         deliverableIds:
           type: array
@@ -599,7 +814,7 @@ components:
       properties:
         title: { type: string, minLength: 1, maxLength: 256 }
         description: { type: string, maxLength: 8000, nullable: true }
-        assigneeRef: { type: string, maxLength: 256, nullable: true }
+        assigneeRef: { type: string, format: uuid, nullable: true }
         assigneeRole: { type: string, maxLength: 64, nullable: true }
         status: { $ref: '#/components/schemas/TaskStatus' }
         deliverableIds:
@@ -615,7 +830,7 @@ components:
         title: { type: string, maxLength: 256 }
         phase: { type: string, maxLength: 64 }
         version: { type: string, maxLength: 64 }
-        sourceRef: { type: string, maxLength: 2048, description: Source semantics pending HD-004. }
+        sourceRef: { type: string, maxLength: 2048, description: Repository file reference for M02; system editing and file hosting are deferred under HD-004. }
         reviewStatus: { type: string, enum: [DRAFT, PENDING, APPROVED, RETURNED, CLARIFICATION_REQUIRED] }
         createdAt: { type: string, format: date-time }
     DeliverableCreate:
@@ -626,7 +841,7 @@ components:
         title: { type: string, minLength: 1, maxLength: 256 }
         phase: { type: string, maxLength: 64 }
         version: { type: string, maxLength: 64 }
-        sourceRef: { type: string, minLength: 1, maxLength: 2048 }
+        sourceRef: { type: string, minLength: 1, maxLength: 2048, description: Repository file reference; must not be a public upload URL. }
     DeliverableReviewCreate:
       type: object
       required: [outcome, comment]
@@ -643,7 +858,7 @@ components:
           required: [id, reviewerRef, createdAt]
           properties:
             id: { type: integer, format: int64 }
-            reviewerRef: { type: string, maxLength: 256 }
+            reviewerRef: { type: string, format: uuid, description: Server-derived principal reference; never accepted from the request body. }
             createdAt: { type: string, format: date-time }
     DeliverablePage:
       type: object
@@ -655,13 +870,18 @@ components:
         total: { type: integer }
     Gate:
       type: object
-      required: [id, projectId, phase, status, checks]
+      required: [id, projectId, phase, status, checks, submittedByRef, decisionOwnerRef, taskIds, deliverableIds]
       properties:
         id: { type: integer, format: int64 }
         projectId: { type: integer, format: int64 }
         phase: { type: string, maxLength: 64 }
-        status: { type: string, enum: [PENDING, APPROVED, RETURNED, BLOCKED, HUMAN_DECISION_REQUIRED] }
-        reviewerRef: { type: string, maxLength: 256, nullable: true }
+        status: { type: string, enum: [PENDING, READY_FOR_REVIEW, APPROVED, RETURNED, BLOCKED, HUMAN_DECISION_REQUIRED] }
+        submittedByRef: { type: string, format: uuid, nullable: true, description: Server-derived Gate submission actor. }
+        decisionOwnerRef: { type: string, format: uuid, nullable: true, description: Designated decision-responsible principal; cannot review this Gate. }
+        taskIds: { type: array, items: { type: integer, format: int64 }, description: Tasks included in the Gate's conflict scope. }
+        deliverableIds: { type: array, items: { type: integer, format: int64 }, description: Deliverables included in the Gate's conflict scope. }
+        submittedAt: { type: string, format: date-time, nullable: true }
+        reviewerRef: { type: string, format: uuid, nullable: true, description: Server-derived principal reference. }
         decisionComment: { type: string, maxLength: 4000, nullable: true }
         decidedAt: { type: string, format: date-time, nullable: true }
         checks: { type: array, items: { $ref: '#/components/schemas/GateCheck' } }
@@ -673,8 +893,23 @@ components:
         code: { type: string, maxLength: 64 }
         title: { type: string, maxLength: 256 }
         status: { type: string, enum: [PENDING, PASSED, FAILED, CLARIFICATION_REQUIRED] }
+        reviewerRef: { type: string, format: uuid, nullable: true, description: Server-derived Reviewer principal. }
         comment: { type: string, maxLength: 4000, nullable: true }
         evidenceRefs: { type: array, items: { type: string, maxLength: 2048 } }
+    GateSubmissionCreate:
+      type: object
+      required: [decisionOwnerRef, taskIds, deliverableIds]
+      additionalProperties: false
+      properties:
+        decisionOwnerRef: { type: string, format: uuid, description: Must reference an active member of the same project. }
+        taskIds:
+          type: array
+          uniqueItems: true
+          items: { type: integer, format: int64, minimum: 1 }
+        deliverableIds:
+          type: array
+          uniqueItems: true
+          items: { type: integer, format: int64, minimum: 1 }
     CheckDecisionCreate:
       type: object
       required: [status]
@@ -722,7 +957,7 @@ components:
         title: { type: string, maxLength: 256 }
         phase: { type: string, maxLength: 64 }
         version: { type: string, maxLength: 64 }
-        sourceRef: { type: string, maxLength: 2048 }
+        sourceRef: { type: string, maxLength: 2048, description: Repository file reference for the indexed template or rule. }
         sourceStatus: { type: string, enum: [CONFIRMED, PENDING_CONFIRMATION] }
     ActivityPage:
       type: object
@@ -756,7 +991,7 @@ components:
         modelRef: { type: string, maxLength: 128, nullable: true }
         toolRefs: { type: array, items: { type: string, maxLength: 128 } }
         permissionSummary: { type: string, maxLength: 2000, nullable: true }
-        nextAction: { type: string, maxLength: 128 }
+        nextAction: { type: string, maxLength: 128, description: M02 returns CONFIG_NOT_APPROVED and directs the caller to the deferred-decision record. }
     AgentRun:
       type: object
       required: [id, projectId, taskId, status, createdAt]
@@ -777,5 +1012,5 @@ components:
         title: { type: string }
         status: { type: integer }
         detail: { type: string }
-        code: { type: string, enum: [VALIDATION_FAILED, NOT_FOUND, FORBIDDEN, CONFLICT, HUMAN_DECISION_REQUIRED, GATE_NOT_APPROVED, CONFIG_NOT_APPROVED] }
+        code: { type: string, enum: [VALIDATION_FAILED, NOT_FOUND, FORBIDDEN, CONFLICT, REVIEW_CONFLICT, HUMAN_DECISION_REQUIRED, GATE_NOT_APPROVED, CONFIG_NOT_APPROVED] }
         decisionRef: { type: string, nullable: true, description: Open Issue or decision record reference. }

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "status": "PROPOSED",
+  "routes": {
+    "contract-review": {"route": "G-R01", "required_scopes": ["contract.read"], "authorization_effect": "none"},
+    "plan-design": {"route": "G-R02", "required_scopes": ["docs.read"], "authorization_effect": "none"},
+    "repository-governance": {"route": "G-R03", "required_scopes": ["governance.review"], "authorization_effect": "none"},
+    "backend-implementation": {"route": "G-R04", "required_scopes": ["backend.write", "approved.contract"], "authorization_effect": "none"},
+    "frontend-implementation": {"route": "G-R05", "required_scopes": ["frontend.write", "approved.contract"], "authorization_effect": "none"},
+    "verification-review": {"route": "G-R06", "required_scopes": ["verification.read"], "authorization_effect": "none"}
+  },
+  "default": {"route": "G-R00", "required_scopes": [], "decision": "MANUAL_REVIEW", "authorization_effect": "none"}
+}

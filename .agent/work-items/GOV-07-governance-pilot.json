@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "example_only": false,
+  "id": "GOV-07-governance-pilot",
+  "repository": "hengaikj/ha-ai-factory",
+  "task_kind": "repository-governance",
+  "requested_action": "inspect",
+  "baseline_sha": "f5d7af91435f8d5b722a054545f4c5f8c69fb743",
+  "allowed_paths": ["tests/governance/", "scripts/governance/"],
+  "forbidden_paths": ["contracts/", "ha-ai-factory-server/", "ha-ai-agent-runtime/"],
+  "required_scopes": ["governance.review"],
+  "acceptance_ids": ["R01", "R02", "G01", "E01"],
+  "status": "PROPOSED",
+  "approval_refs": []
+}

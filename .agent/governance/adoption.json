@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "status": "PROPOSED",
+  "repository": "hengaikj/ha-ai-factory",
+  "accepted_baseline_sha": null,
+  "scope_ids": ["GOV-01", "GOV-02", "GOV-03", "GOV-04", "GOV-05"],
+  "excluded_capabilities": ["run_model", "run_runtime", "run_migration", "deploy", "merge", "git_integration", "ci_enforcement"],
+  "approval_source": null,
+  "approval_verification": "待负责人接受 B0 和采用范围"
+}

@@ -1,0 +1,7 @@
+package com.hengaikj.ai.factory.project;
+import java.time.Instant;
+/** Open Issue数据库行，公开类型供MyBatis运行时代理访问。 */
+public class IssueRow {
+    private Long id, projectId; private String code,title,description,impact,decisionRole,status,decision,createdByRef,decidedByRef; private Instant createdAt,decidedAt;
+    public Long getId(){return id;} public void setId(Long v){id=v;} public Long getProjectId(){return projectId;} public void setProjectId(Long v){projectId=v;} public String getCode(){return code;} public void setCode(String v){code=v;} public String getTitle(){return title;} public void setTitle(String v){title=v;} public String getDescription(){return description;} public void setDescription(String v){description=v;} public String getImpact(){return impact;} public void setImpact(String v){impact=v;} public String getDecisionRole(){return decisionRole;} public void setDecisionRole(String v){decisionRole=v;} public String getStatus(){return status;} public void setStatus(String v){status=v;} public String getDecision(){return decision;} public void setDecision(String v){decision=v;} public String getCreatedByRef(){return createdByRef;} public void setCreatedByRef(String v){createdByRef=v;} public String getDecidedByRef(){return decidedByRef;} public void setDecidedByRef(String v){decidedByRef=v;} public Instant getCreatedAt(){return createdAt;} public void setCreatedAt(Instant v){createdAt=v;} public Instant getDecidedAt(){return decidedAt;} public void setDecidedAt(Instant v){decidedAt=v;}
+}

@@ -1,0 +1,277 @@
+openapi: 3.1.0
+info:
+  title: HA Agent Runtime to Laya Inference API
+  version: 1.0.0-draft
+  description: >-
+    Private service-to-service contract for approved typed inference. This API is
+    not reachable from browsers or the public network. Model selection is fixed
+    by the Laya deployment and is never supplied by the caller.
+servers:
+  - url: https://laya-inference.internal
+    description: Private mTLS gateway address supplied by the approved deployment; direct Laya process access is prohibited.
+security:
+  - runtimeWorkloadMtls: []
+x-network-boundary:
+  inference-caller: HA Agent Runtime workload only
+  health-probe-caller: Runtime or deployment orchestrator on the private network
+  ingress: private service network
+  public-or-browser-access: prohibited
+x-gateway-enforcement:
+  mtls-termination: approved private inference gateway
+  body-validation: strict SystemOneRequest schema; reject unknown fields including model
+  upstream-egress: only gateway may call the Laya process
+  laya-auto-task-detection: false
+  laya-preloaded-checkpoints: [multilingual]
+  laya-upstream-model: multilingual
+  laya-bearer-key: optional additional gateway-to-Laya check, secret-managed
+x-timeouts:
+  connect-seconds: 2
+  attempt-total-seconds: 5
+x-retry-policy:
+  max-retries: 1
+  retryable: [connection-error, timeout, 503]
+  reuse-request-body: true
+  reuse-request-id: true
+  backoff-milliseconds: 200
+  max-operation-seconds: 10.2
+  non-retryable: [400, 401, 403, 422]
+x-admission-control:
+  max-in-flight-per-instance: 1
+  waiting-queue: 0
+  overload-status: 503
+x-model-policy:
+  checkpoint: multilingual
+  upstream-model-field: injected-as-fixed-constant-by-gateway
+  allowed-checkpoints: [multilingual]
+  disabled-checkpoints: [english, typed-decisions]
+  required-loaded-checkpoints: [multilingual]
+  caller-may-select-model: false
+x-input-budget:
+  checkpoint-context-tokens: 1024
+  maximum-option-tokens-per-question: 256
+  maximum-state-tokens-per-question: 768
+  maximum-sequence-tokens-per-question: 1024
+  enforcement: pinned-checkpoint-tokenizer-before-inference
+  overflow: reject-with-422-input-too-long
+  truncation: prohibited
+paths:
+  /health:
+    get:
+      operationId: layaHealth
+      summary: Check that the Laya process and approved checkpoint are ready
+      security: []
+      responses:
+        '200':
+          description: Process health. Runtime sends inference only when the approved multilingual checkpoint is loaded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, loaded]
+                properties:
+                  status: { type: string, const: ok }
+                  loaded:
+                    type: array
+                    items: { type: string, enum: [english, multilingual, typed-decisions] }
+                  device: { type: string }
+        default:
+          description: Health probe failed.
+  /v1/systemone:
+    post:
+      operationId: inferTypedDecision
+      summary: Evaluate approved typed questions over a sanitized task summary
+      parameters:
+        - name: X-Request-ID
+          in: header
+          required: true
+          description: Runtime-generated correlation ID; it is not model input.
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SystemOneRequest' }
+      responses:
+        '200':
+          description: Typed model result. The result is untrusted and requires Runtime validation and human review.
+          headers:
+            X-Request-ID:
+              required: true
+              description: Gateway echoes the exact request ID after binding the response to this upstream exchange; Laya itself does not echo it.
+              schema: { type: string, format: uuid }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SystemOneResponse' }
+        '400':
+          description: Malformed request.
+          headers:
+            X-Request-ID: { required: true, schema: { type: string, format: uuid } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderError' }
+        '401':
+          description: Workload authentication failed; gateway returns the stable mapped error and request ID.
+          headers:
+            X-Request-ID: { required: true, schema: { type: string, format: uuid } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderError' }
+        '422':
+          description: Request schema/question invalid, or pinned-tokenizer budget exceeded; over-budget input is rejected before inference and is never silently truncated.
+          headers:
+            X-Request-ID: { required: true, schema: { type: string, format: uuid } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderError' }
+        '503':
+          description: Model unavailable, not ready, or admission limit reached.
+          headers:
+            X-Request-ID: { required: true, schema: { type: string, format: uuid } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProviderError' }
+components:
+  securitySchemes:
+    runtimeWorkloadMtls:
+      type: mutualTLS
+      description: Runtime workload certificate is issued and rotated by the approved private environment.
+  schemas:
+    SystemOneRequest:
+      type: object
+      additionalProperties: false
+      required: [state, questions]
+      properties:
+        state:
+          type: string
+          maxLength: 4000
+          description: Sanitized minimum-necessary task summary; no project, user, credential, or full-body identifiers.
+        questions:
+          type: object
+          minProperties: 1
+          maxProperties: 8
+          propertyNames: { pattern: '^[a-z][a-z0-9_]{0,63}$' }
+          additionalProperties: { $ref: '#/components/schemas/Question' }
+    Question:
+      oneOf:
+        - $ref: '#/components/schemas/ChoiceQuestion'
+        - $ref: '#/components/schemas/ScoreQuestion'
+        - $ref: '#/components/schemas/NoulQuestion'
+    ChoiceQuestion:
+      type: object
+      additionalProperties: false
+      required: [type, instructions, criteria]
+      properties:
+        type: { const: choice }
+        instructions: { type: string, minLength: 1, maxLength: 1000 }
+        criteria:
+          type: object
+          minProperties: 2
+          maxProperties: 32
+          propertyNames: { pattern: '^[a-z][a-z0-9_-]{0,63}$' }
+          additionalProperties: { type: string, maxLength: 256 }
+    ScoreQuestion:
+      type: object
+      additionalProperties: false
+      required: [type, instructions, criteria]
+      properties:
+        type: { const: score }
+        instructions: { type: string, minLength: 1, maxLength: 1000 }
+        criteria:
+          type: array
+          minItems: 2
+          maxItems: 10
+          items: { type: string, minLength: 1, maxLength: 128 }
+    NoulQuestion:
+      type: object
+      additionalProperties: false
+      required: [type, instructions]
+      properties:
+        type: { const: noul }
+        instructions: { type: string, minLength: 1, maxLength: 1000 }
+    SystemOneResponse:
+      type: object
+      additionalProperties: false
+      required: [model, answers, usage, routing]
+      properties:
+        model:
+          type: string
+          description: Actual upstream model identifier; Runtime validates it against the deployment allowlist.
+        answers:
+          type: object
+          minProperties: 1
+          description: Answer keys must exactly match request question IDs.
+          additionalProperties: { $ref: '#/components/schemas/Answer' }
+        usage:
+          type: object
+          additionalProperties: false
+          required: [input_tokens, output_tokens]
+          properties:
+            input_tokens: { type: integer, minimum: 0 }
+            output_tokens: { type: integer, minimum: 0 }
+        routing:
+          type: object
+          additionalProperties: true
+          description: Upstream routing metadata; selected checkpoint must match the approved deployment allowlist.
+          required: [model]
+          properties:
+            model: { type: string, enum: [multilingual] }
+            repo: { type: string }
+            reason: { type: string, maxLength: 512 }
+        latency_ms: { type: number, minimum: 0 }
+    Answer:
+      oneOf:
+        - $ref: '#/components/schemas/ChoiceAnswer'
+        - $ref: '#/components/schemas/ScoreAnswer'
+        - $ref: '#/components/schemas/NoulAnswer'
+    ChoiceAnswer:
+      type: object
+      additionalProperties: false
+      required: [type, choice, confidence, probabilities, action]
+      properties:
+        type: { const: choice }
+        choice: { type: string }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        probabilities:
+          type: object
+          additionalProperties: { type: number, minimum: 0, maximum: 1 }
+        action: { $ref: '#/components/schemas/ActionMetadata' }
+    ScoreAnswer:
+      type: object
+      additionalProperties: false
+      required: [type, score, legend, probabilities, confidence, action]
+      properties:
+        type: { const: score }
+        score: { type: number, minimum: 0, maximum: 9, description: Expected zero-based ordinal score; Runtime also enforces score <= submitted criterion count - 1. }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        probabilities:
+          type: object
+          propertyNames: { pattern: '^[0-9]$' }
+          additionalProperties: { type: number, minimum: 0, maximum: 1 }
+        legend:
+          type: object
+          description: Must map each zero-based index 0..k-1 exactly to the submitted ordered criterion at that index.
+          propertyNames: { pattern: '^[0-9]$' }
+          additionalProperties: { type: string }
+        action: { $ref: '#/components/schemas/ActionMetadata' }
+    NoulAnswer:
+      type: object
+      additionalProperties: false
+      required: [type, noul, confidence, action]
+      properties:
+        type: { const: noul }
+        noul: { type: number, minimum: 0, maximum: 1 }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        action: { $ref: '#/components/schemas/ActionMetadata' }
+    ActionMetadata:
+      type: object
+      additionalProperties: false
+      required: [act_probability]
+      properties:
+        act_probability: { type: number, minimum: 0, maximum: 1 }
+    ProviderError:
+      type: object
+      required: [code, detail]
+      additionalProperties: false
+      properties:
+        code: { type: string, enum: [INVALID_REQUEST, INPUT_TOO_LONG, AUTHENTICATION_FAILED, PROVIDER_UNAVAILABLE, PROVIDER_OVERLOADED, MODEL_NOT_READY, INTERNAL_PROVIDER_ERROR] }
+        detail: { type: string, maxLength: 512, description: Stable sanitized operator-facing guidance; never copied from upstream exception detail and must not contain prompt, state, credential, or other project data. }
